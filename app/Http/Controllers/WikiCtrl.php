@@ -1,15 +1,19 @@
-<?php namespace App\Http\Controllers;
+<?php
 
-use App\Models\Doc;
+namespace App\Http\Controllers;
+
 use Illuminate\Http\Request;
+use App\Models\Page; // Assuming a simple Page model
 
-class WikiCtrl extends Controller {
-    // Display public wiki home with latest docs
-    public function idx() { return view('wiki.home', ['docs' => Doc::latest()->get()]); }
+class WikiCtrl extends Controller
+{
+    function home(){
+        $pages = Page::where('active', 1)->get();
+        return view('wiki.home', compact('pages'));
+    }
 
-    // Read a specific document by slug
-    public function read($slug) { return view('wiki.read', ['doc' => Doc::where('slug', $slug)->firstOrFail()]); }
-
-    // Simple search functionality
-    public function find(Request $r) { return view('wiki.find', ['res' => Doc::where('title', 'like', "%{$r->q}%")->get()]); }
+    function read($slug){
+        $page = Page::where('slug', $slug)->firstOrFail();
+        return view('wiki.read', compact('page'));
+    }
 }

@@ -1,118 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Dashboard UT Satui - Oct 2025</title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UT Satui Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --ut-yellow: #fcb900; --ut-dark: #2d2d2d; --bg: #f4f6f8; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding-bottom: 40px; }
-        
-        /* Navbar */
-        .nav { background: var(--ut-yellow); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .nav h1 { margin: 0; font-size: 1.25rem; color: var(--ut-dark); font-weight: 700; }
-        .nav form button { background: var(--ut-dark); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
-
-        /* Container */
-        .box { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
-
-        /* Cards */
-        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border-left: 4px solid var(--ut-yellow); }
-        .card h3 { margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.875rem; text-transform: uppercase; }
-        .card .val { font-size: 2rem; font-weight: bold; color: var(--ut-dark); }
-        .card .sub { font-size: 0.8rem; color: #9ca3af; }
-
-        /* Section Header */
-        .sec-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-        .sec-head h2 { font-size: 1.25rem; color: #1f2937; margin: 0; border-bottom: 2px solid var(--ut-yellow); display: inline-block; padding-bottom: 4px; }
-
-        /* Table */
-        .tbl-wrap { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        th { background: #f9fafb; text-align: left; padding: 0.75rem 1rem; color: #4b5563; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
-        td { padding: 0.75rem 1rem; border-bottom: 1px solid #e5e7eb; color: #1f2937; }
-        tr:last-child td { border-bottom: none; }
-        tr:hover { background: #f9fafb; }
-        .num { text-align: right; font-family: 'Courier New', monospace; font-weight: 600; }
-        .pill { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
-        .p-ut { background: #fee2e2; color: #991b1b; } /* Red-ish for UT */
-        .p-con { background: #dbeafe; color: #1e40af; } /* Blue-ish for Contractors */
+        .ut-yellow { background-color: #FCCF00; color: black; }
+        .ut-header { border-bottom: 4px solid #000; }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 font-sans text-sm">
 
-    <div class="nav">
-        <h1>DASHBOARD UT SATUI - AS OF OCT 2025</h1>
-        <form action="{{ route('logout') }}" method="POST">@csrf <button>LOGOUT</button></form>
-    </div>
+    <header class="ut-yellow ut-header p-4 flex justify-between items-center shadow-md">
+        <div class="flex items-center gap-4">
+            <div class="bg-black text-white font-bold p-2 text-lg tracking-wider">UT</div>
+            <div>
+                <h1 class="font-bold text-xl uppercase">Dashboard Operational</h1>
+                <p class="text-xs font-semibold opacity-80">Site: SATUI | Period: Oct 2025</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="font-bold uppercase">{{ $user->username }}</span>
+            <form action="{{ route('adm.out') }}" method="POST">
+                @csrf
+                <button class="bg-black text-white px-4 py-1 font-bold hover:bg-gray-800 transition">LOGOUT</button>
+            </form>
+        </div>
+    </header>
 
-    <div class="box">
-        <!-- Metric Cards -->
-        <div class="cards">
-            <div class="card">
-                <h3>Total Manpower</h3>
-                <div class="val">{{ number_format($stats['tot_mp']) }}</div>
-                <div class="sub">Active Employees</div>
+    <main class="p-6 max-w-7xl mx-auto space-y-6">
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white border-l-8 border-yellow-500 p-4 shadow">
+                <p class="text-gray-500 font-bold text-xs uppercase">Total Manpower</p>
+                <p class="text-4xl font-black text-gray-800">{{ number_format($stats['mp']) }}</p>
+                <p class="text-xs text-green-600 font-bold mt-1">Active Personnel</p>
             </div>
-            <div class="card">
-                <h3>Total Manhours</h3>
-                <div class="val">{{ number_format($stats['tot_mh']) }}</div>
-                <div class="sub">Cumulative Hours</div>
+            <div class="bg-white border-l-8 border-black p-4 shadow">
+                <p class="text-gray-500 font-bold text-xs uppercase">Total Manhours</p>
+                <p class="text-4xl font-black text-gray-800">{{ number_format($stats['mh']) }}</p>
+                <p class="text-xs text-gray-600 font-bold mt-1">Safe Work Hours</p>
             </div>
-            <div class="card">
-                <h3>Manpower Out</h3>
-                <div class="val">{{ number_format($stats['out_mp']) }}</div>
-                <div class="sub">Resigned / Terminated</div>
-            </div>
-             <div class="card" style="border-color: #3b82f6;">
-                <h3>Wiki Docs</h3>
-                <div class="val">{{ number_format($stats['docs']) }}</div>
-                <div class="sub">System Articles</div>
+            <div class="bg-white border-l-8 border-yellow-500 p-4 shadow">
+                <p class="text-gray-500 font-bold text-xs uppercase">Companies/Partners</p>
+                <p class="text-4xl font-black text-gray-800">{{ $stats['companies'] }}</p>
+                <p class="text-xs text-gray-600 font-bold mt-1">Contractors & Internal</p>
             </div>
         </div>
 
-        <!-- Summary Table -->
-        <div class="sec-head">
-            <h2>Summary Manpower & Manhours</h2>
-        </div>
-        
-        <div class="tbl-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Category</th>
-                        <th>Company</th>
-                        <th class="num">Manpower</th>
-                        <th class="num">Manhours</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($report as $row)
-                    <tr>
-                        <td>
-                            <span class="pill {{ $row->worker_category == 'KARYAWAN' ? 'p-ut' : 'p-con' }}">
-                                {{ $row->worker_category }}
-                            </span>
-                        </td>
-                        <td>{{ $row->company }}</td>
-                        <td class="num">{{ number_format($row->total_mp) }}</td>
-                        <td class="num">{{ number_format($row->total_mh) }}</td>
-                    </tr>
-                    @endforeach
-                </tbody>
-                {{-- Grand Total Row --}}
-                <tr style="background:#f3f4f6; font-weight:bold;">
-                    <td colspan="2" style="text-align:right;">GRAND TOTAL</td>
-                    <td class="num">{{ number_format($stats['tot_mp']) }}</td>
-                    <td class="num">{{ number_format($stats['tot_mh']) }}</td>
-                </tr>
-            </table>
-        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-1 bg-white shadow rounded overflow-hidden">
+                <div class="ut-yellow px-4 py-3 border-b-2 border-black">
+                    <h3 class="font-bold uppercase">Summary by Company</h3>
+                </div>
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-gray-200 text-xs uppercase">
+                        <tr>
+                            <th class="p-2 border-b border-gray-300">Company</th>
+                            <th class="p-2 border-b border-gray-300 text-right">MP</th>
+                            <th class="p-2 border-b border-gray-300 text-right">Hours</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-xs">
+                        @foreach($summary as $row)
+                        <tr class="odd:bg-white even:bg-gray-50 hover:bg-yellow-50">
+                            <td class="p-2 border-b border-gray-100 font-semibold">{{ Str::limit($row->company, 20) }}</td>
+                            <td class="p-2 border-b border-gray-100 text-right">{{ $row->manpower }}</td>
+                            <td class="p-2 border-b border-gray-100 text-right">{{ number_format($row->total_hours) }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
 
-        <div style="margin-top: 2rem; text-align: center;">
-            <a href="{{ route('docs.index') }}" style="color: #4b5563; text-decoration: none; border-bottom: 1px dashed #9ca3af;">Go to CMS Panel &rarr;</a>
-        </div>
-    </div>
+            <div class="lg:col-span-2 bg-white shadow rounded overflow-hidden">
+                <div class="ut-yellow px-4 py-3 border-b-2 border-black flex justify-between items-center">
+                    <h3 class="font-bold uppercase">Personnel Detail (Last 50 Entries)</h3>
+                    <button class="text-xs bg-black text-white px-2 py-1 hover:bg-gray-800">Export CSV</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-800 text-white text-xs uppercase">
+                            <tr>
+                                <th class="p-3">NRP</th>
+                                <th class="p-3">Name</th>
+                                <th class="p-3">Position</th>
+                                <th class="p-3">Company</th>
+                                <th class="p-3 text-right">Days</th>
+                                <th class="p-3 text-right">Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-xs text-gray-700">
+                            @foreach($details as $d)
+                            <tr class="border-b border-gray-100 hover:bg-yellow-100 transition">
+                                <td class="p-3 font-mono">{{ $d->nrp ?? '-' }}</td>
+                                <td class="p-3 font-bold">{{ $d->name }}</td>
+                                <td class="p-3">{{ $d->position }}</td>
+                                <td class="p-3 text-[10px] uppercase text-gray-500">{{ $d->company }}</td>
+                                <td class="p-3 text-right">{{ $d->work_days }}</td>
+                                <td class="p-3 text-right font-semibold">{{ number_format($d->manhours) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
+        </div>
+    </main>
 </body>
 </html>

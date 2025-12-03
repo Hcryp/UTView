@@ -3,50 +3,56 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use App\Models\Manhour;
+use App\Models\Wiki;
 
 class AdmCtrl extends Controller
 {
-    function login() { return view('adm.login'); }
-
-    function signin(Request $req) {
-        $creds = $req->validate(['username' => 'required', 'password' => 'required']);
-        if (Auth::attempt($creds)) {
-            $req->session()->regenerate();
-            return redirect()->intended('adm');
-        }
-        return back()->withErrors(['username' => 'Access Denied']);
+    public function dash()
+    {
+        $pages = Wiki::latest()->paginate(20);
+        return view('admin.dashboard', compact('pages'));
     }
-function dash() {
-        // 1. Calculate Grand Totals
-        $stats = [
-            'mp' => Manhour::where('is_active', 1)->count(),
-            'mh' => Manhour::where('is_active', 1)->sum('manhours'),
-            'companies' => Manhour::distinct('company')->count(),
-        ];
 
-        // 2. Generate Summary
-        $summary = Manhour::select('company', 'category')
-            ->selectRaw('count(*) as manpower, sum(manhours) as total_hours')
-            ->where('is_active', 1)
-            ->groupBy('company', 'category')
-            ->orderBy('total_hours', 'desc')
-            ->get();
+    public function create()
+    {
+        return view('admin.create');
+    }
 
-        // 3. Get Recent Detailed Rows
-        $details = Manhour::where('is_active', 1)->latest()->limit(50)->get();
+    public function store(Request $request)
+    {
+        $valid = $request->validate([
+            'title' => 'required|string|max:255',
+            'slug' => 'required|string|unique:wikis,slug',
+            'content' => 'required',
+        ]);
 
-        // FIX: Extract user first, then use compact for everything
-        $user = Auth::user();
+        Wiki::create($valid);
+        return redirect()->route('admin.dash')->with('success', 'Page created.');
+    }
+
+    public function edit($id)
+    {
+        $page = Wiki::findOrFail($id);
+        return view('admin.edit', compact('page'));
+    }
+
+    public function update(Request $request, $id)
+    {
+        $page = Wiki::findOrFail($id);
         
-        return view('adm.dash', compact('stats', 'summary', 'details', 'user'));
+        $valid = $request->validate([
+            'title' => 'required|string|max:255',
+            'slug' => 'required|string|unique:wikis,slug,'.$id,
+            'content' => 'required',
+        ]);
+
+        $page->update($valid);
+        return redirect()->route('admin.dash')->with('success', 'Page updated.');
     }
 
-    function out(Request $req) {
-        Auth::logout();
-        $req->session()->invalidate();
-        return redirect('/login');
+    public function destroy($id)
+    {
+        Wiki::destroy($id);
+        return back()->with('success', 'Page deleted.');
     }
 }

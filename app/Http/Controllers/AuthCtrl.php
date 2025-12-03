@@ -1,29 +1,22 @@
-<?php
+<?php namespace App\Http\Controllers;
 
-namespace App\Http\Controllers;
-use Illuminate\Http\Request; use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AuthCtrl extends Controller {
+    // Show login form
     public function form() { return view('auth.login'); }
 
-    public function in(Request $r) {
-        // Validate Username and Password
-        $creds = $r->validate([
-            'username' => 'required',
-            'password' => 'required'
-        ]);
-
-        // Attempt login with username
-        if (Auth::attempt($creds)) {
-            $r->session()->regenerate();
-            return redirect()->intended(route('adm.dash'));
-        }
-
-        return back()->withErrors(['password' => 'Invalid username or password.']);
+    // Process login attempt
+    public function chk(Request $r) {
+        $creds = $r->validate(['email' => 'required|email', 'password' => 'required']);
+        if (Auth::attempt($creds)) { $r->session()->regenerate(); return redirect()->route('adm.dash'); }
+        return back()->withErrors(['email' => 'Invalid credentials']);
     }
 
+    // Logout
     public function out(Request $r) {
-        Auth::logout(); $r->session()->invalidate(); $r->session()->regenerateToken();
-        return redirect()->route('login');
+        Auth::logout(); $r->session()->invalidate();
+        return redirect()->route('wiki.idx');
     }
 }

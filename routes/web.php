@@ -1,18 +1,19 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\{PubCtrl, AuthCtrl, AdmCtrl, CmsCtrl};
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
+// Public
+Route::get('/', [PubCtrl::class, 'index'])->name('home');
+Route::get('/wiki/{slug}', [PubCtrl::class, 'read'])->name('wiki.read');
 
-Route::get('/', function () {
-    return view('welcome');
+// Auth
+Route::get('/login', [AuthCtrl::class, 'form'])->name('login');
+Route::post('/login', [AuthCtrl::class, 'in']);
+
+// Admin Protected
+Route::middleware('auth')->prefix('adm')->group(function() {
+    Route::post('/out', [AuthCtrl::class, 'out'])->name('logout');
+    Route::get('/dash', [AdmCtrl::class, 'dash'])->name('adm.dash');
+    Route::resource('docs', CmsCtrl::class);
 });

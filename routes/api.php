@@ -1,19 +1,16 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\{PubCtrl, AuthCtrl, AdmCtrl, CmsCtrl};
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
+// Public Interface (Guest Access, Read-Only)
+Route::get('/wiki', [PubCtrl::class, 'list']);      // List all wiki pages
+Route::get('/wiki/{slug}', [PubCtrl::class, 'show']); // Read specific page
+Route::post('/login', [AuthCtrl::class, 'in']);     // Admin login
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+// Restricted Admin Area (Auth Required, Recapitulation & CMS)
+Route::middleware('auth:sanctum')->prefix('adm')->group(function () {
+    Route::get('/stats', [AdmCtrl::class, 'recap']); // Data recapitulation
+    Route::post('/logout', [AuthCtrl::class, 'out']);
+    Route::apiResource('docs', CmsCtrl::class);      // CMS CRUD operations
 });

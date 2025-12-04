@@ -40,7 +40,7 @@
         <form id="filterForm" method="GET" action="{{ route('manpower.index') }}" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
             <input type="hidden" name="per_page" id="hidden_per_page" value="{{ request('per_page', 20) }}">
 
-            <div class="md:col-span-4">
+            <div class="md:col-span-3">
                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Search</label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -53,6 +53,39 @@
             </div>
 
             <div class="md:col-span-2">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Status Filter</label>
+                <select id="filterStatus" name="status" class="w-full text-sm border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                    <option value="ACTIVE" {{ request('status', 'ACTIVE') == 'ACTIVE' ? 'selected' : '' }} class="font-bold text-green-700">Active Personnel</option>
+                    <option value="ALL" {{ request('status') == 'ALL' ? 'selected' : '' }}>Show All History</option>
+                    <optgroup label="Inactive / Separation">
+                        @foreach($opt_out_reasons as $reason)
+                            <option value="{{ $reason }}" {{ request('status') == $reason ? 'selected' : '' }}>{{ $reason }}</option>
+                        @endforeach
+                    </optgroup>
+                </select>
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Department</label>
+                <select id="filterDept" name="department" class="w-full text-sm border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                    <option value="">All Departments</option>
+                    @foreach($opt_depts as $dept)
+                        <option value="{{ $dept }}" {{ request('department') == $dept ? 'selected' : '' }}>{{ $dept }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="md:col-span-2">
+                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
+                <select id="filterCategory" name="category" class="w-full text-sm border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                    <option value="">All Categories</option>
+                    @foreach($opt_categories as $cat)
+                        <option value="{{ $cat }}" {{ request('category') == $cat ? 'selected' : '' }}>{{ $cat }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="md:col-span-1">
                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Site</label>
                 <select id="filterSite" name="site" class="w-full text-sm border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
                     <option value="">All Sites</option>
@@ -60,23 +93,13 @@
                 </select>
             </div>
 
-            <div class="md:col-span-2">
-                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
-                <select id="filterStatus" name="status" class="w-full text-sm border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
-                    <option value="ACTIVE" {{ request('status', 'ACTIVE') == 'ACTIVE' ? 'selected' : '' }}>Active Only</option>
-                    <option value="ALL" {{ request('status') == 'ALL' ? 'selected' : '' }}>Show All</option>
-                    <option value="RESIGN" {{ request('status') == 'RESIGN' ? 'selected' : '' }}>Resigned</option>
-                </select>
-            </div>
-
-            <div class="md:col-span-2">
+            <div class="md:col-span-1">
                 <button type="button" id="resetBtn" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-sm font-bold transition-colors">Reset</button>
             </div>
 
-            <div class="md:col-span-2">
-                <a href="{{ route('manpower.create') }}" class="w-full flex items-center justify-center gap-2 py-2 bg-[#002d5b] hover:bg-blue-900 text-white rounded shadow-md hover:shadow-lg transition-all text-sm font-bold">
+            <div class="md:col-span-1">
+                <a href="{{ route('manpower.create') }}" class="w-full flex items-center justify-center gap-2 py-2 bg-[#002d5b] hover:bg-blue-900 text-white rounded shadow-md hover:shadow-lg transition-all text-sm font-bold" title="Add New">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                    New Entry
                 </a>
             </div>
         </form>
@@ -117,12 +140,12 @@
                             <div class="text-xs text-slate-500 font-mono">{{ $row->nrp ?? '-' }}</div>
                         </td>
                         <td class="px-6 py-3">
-                            <div class="font-semibold text-slate-700">{{ Str::limit($row->company, 20) }}</div>
+                            <div class="font-semibold text-slate-700">{{ Str::limit($row->company, 25) }}</div>
                             <div class="text-xs text-slate-500">{{ $row->site }}</div>
                         </td>
                         <td class="px-6 py-3">
-                            <div class="text-slate-700">{{ $row->role ?? '-' }}</div>
-                            <div class="text-xs text-slate-400">{{ $row->department ?? '' }}</div>
+                            <div class="text-slate-700 font-medium">{{ $row->role ?? '-' }}</div>
+                            <div class="text-[10px] uppercase text-slate-400 font-bold tracking-wide">{{ $row->department ?? '' }}</div>
                         </td>
                         <td class="px-6 py-3 text-center text-slate-600 text-xs">
                             {{ $row->join_date ? date('M Y', strtotime($row->join_date)) : '-' }}
@@ -132,13 +155,18 @@
                         </td>
                         <td class="px-6 py-3 text-center">
                             @if($row->status == 'ACTIVE')
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800 border border-green-200">
                                     <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span> ACTIVE
                                 </span>
                             @else
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800">
-                                    {{ $row->status }}
-                                </span>
+                                <div class="flex flex-col items-center">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+                                        {{ $row->out_reason ?? 'INACTIVE' }}
+                                    </span>
+                                    @if($row->date_out)
+                                    <span class="text-[10px] text-red-400 mt-0.5">{{ date('d/m/y', strtotime($row->date_out)) }}</span>
+                                    @endif
+                                </div>
                             @endif
                         </td>
                     </tr>
@@ -189,36 +217,31 @@
     </div>
 </div>
 
-<script src="//unpkg.com/alpinejs" defer></script>
+<script src="//[unpkg.com/alpinejs](https://unpkg.com/alpinejs)" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const f = document.getElementById('filterForm');
     const c = document.getElementById('tableContainer');
-    let t, ac; // Timer (t) and AbortController (ac)
+    let t, ac;
 
-    // Main Query Function
     function q(p) {
-        // 1. Abort previous request if active
         if (ac) ac.abort();
         ac = new AbortController();
 
-        // 2. Build Parameters
         let params = p;
         if (!params) {
             params = new URLSearchParams(new FormData(f));
-            // Add per_page if it exists
             const pp = document.getElementById('per_page_select');
             if (pp) params.append('per_page', pp.value);
         }
 
         let u = "{{ route('manpower.index') }}?" + params.toString();
 
-        // 3. UI Feedback & Fetch
         c.classList.add('opacity-50', 'pointer-events-none');
         
         fetch(u, {
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            signal: ac.signal // Attach signal to cancel request
+            signal: ac.signal
         })
         .then(r => r.text())
         .then(h => {
@@ -226,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
             c.classList.remove('opacity-50', 'pointer-events-none');
             window.history.replaceState({}, '', u);
             ac = null;
-            l(); // 4. Re-attach listeners for pagination/dropdowns
+            l();
         })
         .catch(e => {
             if (e.name !== 'AbortError') {
@@ -236,7 +259,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Function to Re-attach Listeners (Pagination & Per Page)
     function l() {
         c.querySelectorAll('.pagination a').forEach(a => {
             a.addEventListener('click', (e) => {
@@ -249,25 +271,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (pp) pp.addEventListener('change', () => q());
     }
 
-    // Attach Input Listeners (Debounced)
-    ['searchInput', 'filterSite', 'filterStatus', 'filterCategory'].forEach(i => {
+    ['searchInput', 'filterSite', 'filterStatus', 'filterCategory', 'filterDept'].forEach(i => {
         const e = document.getElementById(i);
         if (e) {
             e.addEventListener(e.type === 'text' ? 'input' : 'change', () => {
                 clearTimeout(t);
-                t = setTimeout(() => q(), 600); // Wait 600ms before requesting
+                t = setTimeout(() => q(), 600);
             });
         }
     });
 
-    // Reset Button
     document.getElementById('resetBtn').addEventListener('click', () => {
         if (ac) ac.abort();
         f.reset();
         q();
     });
 
-    // Initial Load
     l();
 });
 </script>

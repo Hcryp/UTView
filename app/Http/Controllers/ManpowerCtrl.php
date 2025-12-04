@@ -8,7 +8,6 @@ class ManpowerCtrl extends Controller {
     public function index(Request $request) {
         $query = Manpower::query();
 
-        // Search Scope
         $query->when($request->search, fn($q) => 
             $q->where(function($sub) use ($request) {
                 $sub->where('name', 'like', "%{$request->search}%")
@@ -18,14 +17,19 @@ class ManpowerCtrl extends Controller {
             })
         );
 
-        // Filters
-        if ($request->input('status', 'ACTIVE') !== 'ALL') {
-            $query->where('status', $request->input('status', 'ACTIVE'));
+        $status = $request->input('status', 'ACTIVE');
+        if ($status === 'ACTIVE') {
+            $query->where('status', 'ACTIVE');
+        } elseif ($status === 'ALL') {
+            // No status filter
+        } elseif (in_array($status, Manpower::OUT_REASONS)) {
+            $query->where('status', 'INACTIVE')->where('out_reason', $status);
         }
+
         $query->when($request->category, fn($q) => $q->where('category', $request->category));
+        $query->when($request->department, fn($q) => $q->where('department', $request->department));
         $query->when($request->site, fn($q) => $q->where('site', $request->site));
 
-        // Summaries (Preserved for the slide-up report)
         $summaryQuery = clone $query;
         $detailedTable = $summaryQuery->clone()
             ->select('category', 'company', DB::raw('count(*) as mp'), DB::raw('sum(manhours) as mh'))
@@ -41,20 +45,29 @@ class ManpowerCtrl extends Controller {
             'total_mh' => $query->sum('manhours')
         ];
 
-        // Pagination
         $data = $query->orderBy('name')->paginate($request->input('per_page', 20))->withQueryString();
-        $categories = Manpower::distinct()->pluck('category');
+        
         $sites = Manpower::distinct()->pluck('site');
+        $opt_categories = Manpower::CATEGORIES;
+        $opt_depts = Manpower::DEPARTMENTS;
+        $opt_out_reasons = Manpower::OUT_REASONS;
 
         if ($request->ajax()) {
-            return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'categories', 'sites'))->fragment('manpower-table');
+            return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'sites', 'opt_categories', 'opt_depts', 'opt_out_reasons'))->fragment('manpower-table');
         }
 
-        return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'categories', 'sites'));
+        return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'sites', 'opt_categories', 'opt_depts', 'opt_out_reasons'));
     }
 
     public function create() {
-        return view('dash.manpower-form', ['mp' => new Manpower(), 'title' => 'New Manpower Entry', 'mode' => 'create']);
+        return view('dash.manpower-form', [
+            'mp' => new Manpower(), 
+            'title' => 'New Manpower Entry', 
+            'mode' => 'create',
+            'opt_categories' => Manpower::CATEGORIES,
+            'opt_depts' => Manpower::DEPARTMENTS,
+            'opt_out_reasons' => Manpower::OUT_REASONS
+        ]);
     }
 
     public function store(Request $r) {
@@ -63,19 +76,27 @@ class ManpowerCtrl extends Controller {
             'nrp' => 'nullable', 'department' => 'nullable', 'role' => 'nullable',
             'join_date' => 'nullable|date', 'end_date' => 'nullable|date',
             'effective_days' => 'integer|min:0', 'manhours' => 'numeric|min:0', 
-            'status' => 'required'
+            'status' => 'required',
+            'date_out' => 'nullable|date|required_if:status,INACTIVE', 
+            'out_reason' => 'nullable|required_if:status,INACTIVE'
         ]);
         $mp = Manpower::create($val);
         return redirect()->route('manpower.show', $mp->id)->with('success', 'Manpower record created successfully.');
     }
 
-    // New Show Method
     public function show(Manpower $manpower) {
         return view('dash.manpower-show', ['mp' => $manpower]);
     }
 
     public function edit(Manpower $manpower) {
-        return view('dash.manpower-form', ['mp' => $manpower, 'title' => 'Edit Manpower', 'mode' => 'edit']);
+        return view('dash.manpower-form', [
+            'mp' => $manpower, 
+            'title' => 'Edit Manpower', 
+            'mode' => 'edit',
+            'opt_categories' => Manpower::CATEGORIES,
+            'opt_depts' => Manpower::DEPARTMENTS,
+            'opt_out_reasons' => Manpower::OUT_REASONS
+        ]);
     }
 
     public function update(Request $r, Manpower $manpower) {
@@ -84,7 +105,9 @@ class ManpowerCtrl extends Controller {
             'nrp' => 'nullable', 'department' => 'nullable', 'role' => 'nullable',
             'join_date' => 'nullable|date', 'end_date' => 'nullable|date',
             'effective_days' => 'integer|min:0', 'manhours' => 'numeric|min:0', 
-            'status' => 'required', 'date_out' => 'nullable|date', 'out_reason' => 'nullable'
+            'status' => 'required', 
+            'date_out' => 'nullable|date', 
+            'out_reason' => 'nullable'
         ]);
         $manpower->update($val);
         return redirect()->route('manpower.show', $manpower->id)->with('success', 'Manpower details updated.');

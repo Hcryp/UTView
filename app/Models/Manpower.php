@@ -15,15 +15,36 @@ class Manpower extends Model
         'company', 
         'nrp', 
         'name', 
-        'department',      // Baru
+        'department', 
         'role', 
         'join_date', 
         'end_date', 
-        'effective_days',  // Baru
+        'effective_days', 
         'manhours', 
-        'date_out',        // Baru
-        'out_reason',      // Baru
+        'date_out', 
+        'out_reason', 
         'status'
+    ];
+
+    // Standardized Dropdown Options
+    const CATEGORIES = [
+        'KARYAWAN',
+        'KONTRAKTOR GRUP ASTRA',
+        'KONTRAKTOR NON GRUP ASTRA',
+        'MAGANG/PKL/OJT/UT SCHOOL'
+    ];
+
+    const DEPARTMENTS = [
+        'ADMINISTRATION',
+        'CORPU AREA',
+        'PARTS',
+        'SERVICE'
+    ];
+
+    const OUT_REASONS = [
+        'HABIS KONTRAK',
+        'MUTASI',
+        'RESIGN'
     ];
 
     // Helper scope to group categories into Dashboard labels

@@ -1,8 +1,9 @@
 @extends('layout.AdmLayout')
 
 @section('content')
-<div class="flex flex-col space-y-6 pb-12"> 
-    
+<style>[x-cloak]{display:none !important}</style>
+
+<div class="flex flex-col space-y-6 pb-12">
     <div class="flex flex-col md:flex-row justify-between items-end gap-6 shrink-0">
         <div>
             <h2 class="text-3xl font-extrabold text-slate-800 tracking-tight">Manpower Database</h2>
@@ -46,9 +47,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
-                    <input type="text" id="searchInput" name="search" value="{{ request('search') }}" 
-                        class="pl-9 w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-shadow" 
-                        placeholder="Name, NRP, Company..." autocomplete="off">
+                    <input type="text" id="searchInput" name="search" value="{{ request('search') }}" class="pl-9 w-full text-sm border-gray-300 rounded focus:ring-2 focus:ring-blue-100 focus:border-blue-500 transition-shadow" placeholder="Name, NRP, Company..." autocomplete="off">
                 </div>
             </div>
 
@@ -191,7 +190,7 @@
         <svg :class="{'rotate-180': open}" class="w-4 h-4 transition-transform duration-300 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
     </button>
 
-    <div x-show="open" x-transition.origin.bottom class="w-[600px] h-[500px] bg-white shadow-2xl border border-slate-200 rounded-tl-lg flex flex-col overflow-hidden" style="display: none;">
+    <div x-show="open" x-cloak x-transition.origin.bottom class="w-[600px] h-[500px] bg-white shadow-2xl border border-slate-200 rounded-tl-lg flex flex-col overflow-hidden">
         <div class="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center shrink-0">
             <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wide">Category Breakdown</h3>
             <button @click="open = false" class="text-slate-400 hover:text-red-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
@@ -217,76 +216,33 @@
     </div>
 </div>
 
-<script src="//[unpkg.com/alpinejs](https://unpkg.com/alpinejs)" defer></script>
+<script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const f = document.getElementById('filterForm');
-    const c = document.getElementById('tableContainer');
-    let t, ac;
-
-    function q(p) {
-        if (ac) ac.abort();
-        ac = new AbortController();
-
-        let params = p;
-        if (!params) {
-            params = new URLSearchParams(new FormData(f));
-            const pp = document.getElementById('per_page_select');
-            if (pp) params.append('per_page', pp.value);
-        }
-
-        let u = "{{ route('manpower.index') }}?" + params.toString();
-
-        c.classList.add('opacity-50', 'pointer-events-none');
-        
-        fetch(u, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            signal: ac.signal
-        })
-        .then(r => r.text())
-        .then(h => {
-            c.innerHTML = h;
-            c.classList.remove('opacity-50', 'pointer-events-none');
-            window.history.replaceState({}, '', u);
-            ac = null;
-            l();
-        })
-        .catch(e => {
-            if (e.name !== 'AbortError') {
-                c.classList.remove('opacity-50', 'pointer-events-none');
-                console.error(e);
-            }
-        });
+document.addEventListener('DOMContentLoaded',()=>{
+    const f=document.getElementById('filterForm'),c=document.getElementById('tableContainer');
+    let t,ac;
+    function q(p){
+        if(ac)ac.abort();
+        ac=new AbortController();
+        let params=p||new URLSearchParams(new FormData(f));
+        const pp=document.getElementById('per_page_select');
+        if(!p&&pp)params.append('per_page',pp.value);
+        let u="{{ route('manpower.index') }}?"+params.toString();
+        c.classList.add('opacity-50','pointer-events-none');
+        fetch(u,{headers:{'X-Requested-With':'XMLHttpRequest'},signal:ac.signal})
+        .then(r=>r.text()).then(h=>{
+            c.innerHTML=h;c.classList.remove('opacity-50','pointer-events-none');
+            window.history.replaceState({},'',u);ac=null;l();
+        }).catch(e=>{if(e.name!=='AbortError'){c.classList.remove('opacity-50','pointer-events-none');console.error(e)}});
     }
-
-    function l() {
-        c.querySelectorAll('.pagination a').forEach(a => {
-            a.addEventListener('click', (e) => {
-                e.preventDefault();
-                q(new URL(a.href).searchParams);
-            });
-        });
-        
-        const pp = document.getElementById('per_page_select');
-        if (pp) pp.addEventListener('change', () => q());
+    function l(){
+        c.querySelectorAll('.pagination a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();q(new URL(a.href).searchParams)}));
+        const pp=document.getElementById('per_page_select');if(pp)pp.addEventListener('change',()=>q());
     }
-
-    ['searchInput', 'filterSite', 'filterStatus', 'filterCategory', 'filterDept'].forEach(i => {
-        const e = document.getElementById(i);
-        if (e) {
-            e.addEventListener(e.type === 'text' ? 'input' : 'change', () => {
-                clearTimeout(t);
-                t = setTimeout(() => q(), 600);
-            });
-        }
+    ['searchInput','filterSite','filterStatus','filterCategory','filterDept'].forEach(i=>{
+        const e=document.getElementById(i);if(e)e.addEventListener(e.type==='text'?'input':'change',()=>{clearTimeout(t);t=setTimeout(()=>q(),600)});
     });
-
-    document.getElementById('resetBtn').addEventListener('click', () => {
-        if (ac) ac.abort();
-        f.reset();
-        q();
-    });
-
+    document.getElementById('resetBtn').addEventListener('click',()=>{if(ac)ac.abort();f.reset();q()});
     l();
 });
 </script>

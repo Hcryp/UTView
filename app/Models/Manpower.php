@@ -10,8 +10,20 @@ class Manpower extends Model
     use HasFactory;
 
     protected $fillable = [
-        'site', 'category', 'company', 'nrp', 'name', 
-        'role', 'join_date', 'end_date', 'manhours', 'status'
+        'site', 
+        'category', 
+        'company', 
+        'nrp', 
+        'name', 
+        'department',      // Baru
+        'role', 
+        'join_date', 
+        'end_date', 
+        'effective_days',  // Baru
+        'manhours', 
+        'date_out',        // Baru
+        'out_reason',      // Baru
+        'status'
     ];
 
     // Helper scope to group categories into Dashboard labels

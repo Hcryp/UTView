@@ -1,50 +1,66 @@
 <?php namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Manpower;
+use Illuminate\Support\Facades\DB;
 
 class DashCtrl extends Controller {
     public function index() {
-        // Data exactly matching the reference requirements
+        // 1. Fetch Active Manpower Data
+        $manpowers = Manpower::where('status', 'ACTIVE')->get();
+
+        // 2. Aggregate Data for Satui
+        $satuiData = $manpowers->where('site', 'SATUI');
+        $satuiManhours = $satuiData->sum('manhours'); // Sum of manhours column
+        
+        // Count by mapped category
+        $satuiCounts = [
+            'ut'      => $satuiData->where('category', 'KARYAWAN')->count(),
+            'ojt'     => $satuiData->filter(fn($i) => str_contains($i->category, 'MAGANG') || str_contains($i->company, 'UT SCHOOL'))->count(),
+            'partner' => $satuiData->filter(fn($i) => str_contains($i->category, 'KONTRAKTOR'))->count(),
+        ];
+
+        // 3. Aggregate Data for Batulicin (Simulated or fetched if data exists)
+        // Since CSV mostly showed Satui, we might return 0 or fetch if you seed Batulicin data
+        $batuData = $manpowers->where('site', 'BATULICIN');
+        $batuCounts = [
+            'ut'      => $batuData->where('category', 'KARYAWAN')->count(),
+            'ojt'     => $batuData->filter(fn($i) => str_contains($i->category, 'MAGANG'))->count(),
+            'partner' => $batuData->filter(fn($i) => str_contains($i->category, 'KONTRAKTOR'))->count(),
+        ];
+
+        // Construct the final data array matching your View
         $data = [
             'manhours' => [
                 'satui' => [
-                    'label' => 'Satui (17 Apr – 30 Oct 2025)',
-                    'value' => '934,368'
+                    'label' => 'Satui (Realtime)',
+                    'value' => number_format($satuiManhours)
                 ],
                 'batu' => [
-                    'label' => 'Batulicin (1 Jan – 30 Oct 2025)',
-                    'value' => '327,988'
+                    'label' => 'Batulicin (Realtime)',
+                    'value' => number_format($batuData->sum('manhours'))
                 ]
             ],
+            // Keep static for now or create 'Accidents' table later
             'accidents' => [
                 'years' => ['2021', '2022', '2023', '2024', '2025'],
-                'satui' => [1, 1, 1, 0, 0],
+                'satui' => [1, 1, 1, 0, 0], 
                 'batu' =>  [2, 1, 4, 1, 1]
             ],
             'mcu' => [
-                'fit' => 93,
-                'temp_unfit' => 5,
-                'unfit_note' => 2
+                'fit' => 93, 'temp_unfit' => 5, 'unfit_note' => 2
             ],
             'manpower' => [
-                'satui' => [
-                    'partner' => 353,
-                    'ut' => 98,
-                    'ojt' => 66
-                ],
-                'batu' => [
-                    'partner' => 115,
-                    'ut' => 27,
-                    'ojt' => 38
-                ],
-                'total' => 687 // Display label
+                'satui' => $satuiCounts,
+                'batu' => $batuCounts,
+                'total' => $manpowers->count()
             ],
-            // Simulated month-by-month values for Energy/Emission to match visual density of reference
+            // Keep energy static for now
             'energy' => [
                 'months' => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
-                'electricity' => [150, 160, 155, 170, 165, 180, 175, 190, 185, 195], // KWh Trend
-                'fuel' => [12, 14, 13, 15, 14, 16, 15, 17, 16, 18], // Liters (x1000)
-                'water' => [80, 85, 82, 90, 88, 95, 92, 98, 96, 100] // m3
+                'electricity' => [150, 160, 155, 170, 165, 180, 175, 190, 185, 195],
+                'fuel' => [12, 14, 13, 15, 14, 16, 15, 17, 16, 18],
+                'water' => [80, 85, 82, 90, 88, 95, 92, 98, 96, 100]
             ]
         ];
 

@@ -9,8 +9,8 @@
         <a href="{{ route('dash.data') }}" class="flex items-center px-6 py-3 hover:bg-gray-50 {{ request()->routeIs('dash.data') ? 'border-r-4 border-[#002d5b] bg-blue-50 text-[#002d5b] font-bold' : 'text-gray-600' }}">
             <span>Analytics Input</span>
         </a>
-        <a href="#" class="flex items-center px-6 py-3 hover:bg-gray-50 text-gray-600">
-            <span>Manhours</span>
+        <a href="{{ route('manpower.index') }}" class="flex items-center px-6 py-3 hover:bg-gray-50 text-gray-600">
+            Manpower List
         </a>
 
         <div class="px-6 mb-2 mt-6 text-[10px] font-bold text-gray-400 uppercase tracking-wider">WikiMgr</div>

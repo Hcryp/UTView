@@ -49,12 +49,35 @@
 
                 <div class="md:col-span-2">
                     <label class="block text-xs font-bold text-slate-500 mb-1">Company Name <span class="text-red-500">*</span></label>
-                    <input type="text" name="company" value="{{ old('company', $mp->company) }}" class="w-full text-sm border-slate-300 rounded" placeholder="e.g. PT UNITED TRACTORS" required>
+                    <input type="text" 
+                           name="company" 
+                           list="company_list" 
+                           value="{{ old('company', $mp->company) }}" 
+                           class="w-full text-sm border-slate-300 rounded placeholder:text-slate-400" 
+                           placeholder="Type to search existing or enter new..." 
+                           autocomplete="off"
+                           required>
+                    <datalist id="company_list">
+                        @foreach($existing_companies as $comp)
+                            <option value="{{ $comp }}">
+                        @endforeach
+                    </datalist>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-slate-500 mb-1">Job Title (Jabatan)</label>
-                    <input type="text" name="role" value="{{ old('role', $mp->role) }}" class="w-full text-sm border-slate-300 rounded">
+                    <input type="text" 
+                           name="role" 
+                           list="role_list" 
+                           value="{{ old('role', $mp->role) }}" 
+                           class="w-full text-sm border-slate-300 rounded placeholder:text-slate-400" 
+                           placeholder="e.g. Mechanic II"
+                           autocomplete="off">
+                    <datalist id="role_list">
+                        @foreach($existing_roles as $role)
+                            <option value="{{ $role }}">
+                        @endforeach
+                    </datalist>
                 </div>
 
                 <div>

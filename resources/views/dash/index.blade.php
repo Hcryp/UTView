@@ -81,7 +81,7 @@
     </div>
 
     <div class="lg:col-span-2 bg-white p-5 rounded shadow-sm">
-        <h3 class="text-sm font-bold text-slate-700 uppercase border-b pb-2 mb-4">Energy & Emission Trend (2025)</h3>
+        <h3 class="text-sm font-bold text-slate-700 uppercase border-b pb-2 mb-4">Sustain Abillity Report (2025)</h3>
         <div class="grid grid-cols-3 gap-2">
             <div>
                 <p class="text-[10px] text-center mb-1 text-gray-500">Electricity (KWh)</p>

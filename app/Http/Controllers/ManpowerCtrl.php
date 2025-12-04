@@ -60,13 +60,19 @@ class ManpowerCtrl extends Controller {
     }
 
     public function create() {
+        // Fetch existing data for autocomplete
+        $existing_companies = Manpower::distinct()->whereNotNull('company')->orderBy('company')->pluck('company');
+        $existing_roles = Manpower::distinct()->whereNotNull('role')->orderBy('role')->pluck('role');
+
         return view('dash.manpower-form', [
             'mp' => new Manpower(), 
             'title' => 'New Manpower Entry', 
             'mode' => 'create',
             'opt_categories' => Manpower::CATEGORIES,
             'opt_depts' => Manpower::DEPARTMENTS,
-            'opt_out_reasons' => Manpower::OUT_REASONS
+            'opt_out_reasons' => Manpower::OUT_REASONS,
+            'existing_companies' => $existing_companies,
+            'existing_roles' => $existing_roles
         ]);
     }
 
@@ -89,13 +95,19 @@ class ManpowerCtrl extends Controller {
     }
 
     public function edit(Manpower $manpower) {
+        // Fetch existing data for autocomplete
+        $existing_companies = Manpower::distinct()->whereNotNull('company')->orderBy('company')->pluck('company');
+        $existing_roles = Manpower::distinct()->whereNotNull('role')->orderBy('role')->pluck('role');
+
         return view('dash.manpower-form', [
             'mp' => $manpower, 
             'title' => 'Edit Manpower', 
             'mode' => 'edit',
             'opt_categories' => Manpower::CATEGORIES,
             'opt_depts' => Manpower::DEPARTMENTS,
-            'opt_out_reasons' => Manpower::OUT_REASONS
+            'opt_out_reasons' => Manpower::OUT_REASONS,
+            'existing_companies' => $existing_companies,
+            'existing_roles' => $existing_roles
         ]);
     }
 

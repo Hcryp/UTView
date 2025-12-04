@@ -1,14 +1,12 @@
-<?php
+<?php namespace Database\Seeders;
+use Illuminate\Database\Seeder; use App\Models\User;
 
-namespace Database\Seeders;
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-
-class DatabaseSeeder extends Seeder
-{
-    public function run(): void
-    {
-
-        
+class DatabaseSeeder extends Seeder {
+    public function run(): void {
+        User::create([
+            'name' => 'Admin UT',
+            'username' => 'admin',
+            'password' => bcrypt('admin')
+        ]);
     }
 }

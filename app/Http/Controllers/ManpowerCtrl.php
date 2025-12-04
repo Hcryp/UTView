@@ -8,7 +8,7 @@ class ManpowerCtrl extends Controller {
     public function index(Request $request) {
         $query = Manpower::query();
 
-        // 1. Search Filter
+        // Search Scope
         $query->when($request->search, fn($q) => 
             $q->where(function($sub) use ($request) {
                 $sub->where('name', 'like', "%{$request->search}%")
@@ -18,48 +18,80 @@ class ManpowerCtrl extends Controller {
             })
         );
 
-        // 2. Status Filter
-        $status = $request->input('status', 'ACTIVE');
-        if ($status !== 'ALL') {
-            $query->where('status', $status);
+        // Filters
+        if ($request->input('status', 'ACTIVE') !== 'ALL') {
+            $query->where('status', $request->input('status', 'ACTIVE'));
         }
-
-        // 3. Category & Site Filters
         $query->when($request->category, fn($q) => $q->where('category', $request->category));
         $query->when($request->site, fn($q) => $q->where('site', $request->site));
 
-        // --- SUMMARIES ---
+        // Summaries (Preserved for the slide-up report)
         $summaryQuery = clone $query;
-
         $detailedTable = $summaryQuery->clone()
             ->select('category', 'company', DB::raw('count(*) as mp'), DB::raw('sum(manhours) as mh'))
             ->groupBy('category', 'company')
             ->orderBy('category', 'desc')->orderBy('company')->get();
-
+        
         $highLevelTable = $summaryQuery->clone()
             ->select('category', DB::raw('count(*) as mp'), DB::raw('sum(manhours) as mh'))
             ->groupBy('category')->orderBy('category', 'desc')->get();
 
         $summary = [
-            'total_mp'  => $query->count(),
-            'total_mh'  => $query->sum('manhours'),
+            'total_mp' => $query->count(),
+            'total_mh' => $query->sum('manhours')
         ];
 
-        // --- MAIN DATA LIST ---
-        // Default to 20 per page as requested
-        $perPage = $request->input('per_page', 20); 
-        $data = $query->orderBy('name')->paginate($perPage)->withQueryString();
-
+        // Pagination
+        $data = $query->orderBy('name')->paginate($request->input('per_page', 20))->withQueryString();
         $categories = Manpower::distinct()->pluck('category');
         $sites = Manpower::distinct()->pluck('site');
 
-        // *** SINGLE FILE AJAX HANDLING ***
-        // This tells Laravel to only render the @fragment('manpower-table') section
         if ($request->ajax()) {
-            return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'categories', 'sites'))
-                ->fragment('manpower-table');
+            return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'categories', 'sites'))->fragment('manpower-table');
         }
 
         return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'categories', 'sites'));
+    }
+
+    public function create() {
+        return view('dash.manpower-form', ['mp' => new Manpower(), 'title' => 'New Manpower Entry', 'mode' => 'create']);
+    }
+
+    public function store(Request $r) {
+        $val = $r->validate([
+            'site' => 'required', 'company' => 'required', 'category' => 'required', 'name' => 'required',
+            'nrp' => 'nullable', 'department' => 'nullable', 'role' => 'nullable',
+            'join_date' => 'nullable|date', 'end_date' => 'nullable|date',
+            'effective_days' => 'integer|min:0', 'manhours' => 'numeric|min:0', 
+            'status' => 'required'
+        ]);
+        $mp = Manpower::create($val);
+        return redirect()->route('manpower.show', $mp->id)->with('success', 'Manpower record created successfully.');
+    }
+
+    // New Show Method
+    public function show(Manpower $manpower) {
+        return view('dash.manpower-show', ['mp' => $manpower]);
+    }
+
+    public function edit(Manpower $manpower) {
+        return view('dash.manpower-form', ['mp' => $manpower, 'title' => 'Edit Manpower', 'mode' => 'edit']);
+    }
+
+    public function update(Request $r, Manpower $manpower) {
+        $val = $r->validate([
+            'site' => 'required', 'company' => 'required', 'category' => 'required', 'name' => 'required',
+            'nrp' => 'nullable', 'department' => 'nullable', 'role' => 'nullable',
+            'join_date' => 'nullable|date', 'end_date' => 'nullable|date',
+            'effective_days' => 'integer|min:0', 'manhours' => 'numeric|min:0', 
+            'status' => 'required', 'date_out' => 'nullable|date', 'out_reason' => 'nullable'
+        ]);
+        $manpower->update($val);
+        return redirect()->route('manpower.show', $manpower->id)->with('success', 'Manpower details updated.');
+    }
+
+    public function destroy(Manpower $manpower) {
+        $manpower->delete();
+        return redirect()->route('manpower.index')->with('success', 'Record deleted successfully.');
     }
 }

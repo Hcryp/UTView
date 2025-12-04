@@ -17,5 +17,5 @@ Route::middleware('auth')->prefix('dash')->group(function(){
     Route::get('/', [DashCtrl::class, 'index'])->name('dash.index');
     Route::get('/wiki', [DashCtrl::class, 'wikiMgr'])->name('dash.wiki');
     Route::get('/data', [DashCtrl::class, 'dataMgr'])->name('dash.data');
-    Route::get('/manpower', [ManpowerCtrl::class, 'index'])->name('manpower.index');
+    Route::resource('manpower', ManpowerCtrl::class);
 });

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 
 class ManpowerCtrl extends Controller {
     
@@ -24,6 +25,31 @@ class ManpowerCtrl extends Controller {
                 if (!$r->filled('date_out')) $r->merge(['date_out' => $r->end_date]);
             }
         }
+    }
+
+    private function parseCsv($path) {
+        if (!file_exists($path)) return [];
+        
+        $handle = fopen($path, 'r');
+        if (!$handle) return [];
+
+        // Read first line to guess delimiter
+        $firstLine = fgets($handle);
+        rewind($handle);
+        
+        $delimiter = (strpos($firstLine, ';') !== false) ? ';' : ',';
+        
+        $data = [];
+        while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+            // Remove BOM if present in first cell
+            if (isset($row[0])) {
+                $row[0] = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $row[0]);
+            }
+            $data[] = $row;
+        }
+        fclose($handle);
+        
+        return $data;
     }
 
     public function index(Request $request) {
@@ -54,9 +80,7 @@ class ManpowerCtrl extends Controller {
         $dir = $request->input('dir', 'asc');
 
         switch ($sort) {
-            case 'contract':
-                $query->orderByRaw('CASE WHEN end_date IS NULL THEN '.($dir === 'asc' ? '1' : '0').' ELSE '.($dir === 'asc' ? '0' : '1').' END, end_date '.$dir);
-                break;
+            case 'contract': $query->orderByRaw('CASE WHEN end_date IS NULL THEN '.($dir === 'asc' ? '1' : '0').' ELSE '.($dir === 'asc' ? '0' : '1').' END, end_date '.$dir); break;
             case 'newest': $query->orderBy('created_at', 'desc'); break;
             case 'company': $query->orderBy('company', $dir)->orderBy('site', $dir); break;
             case 'role': $query->orderBy('role', $dir); break;
@@ -91,26 +115,293 @@ class ManpowerCtrl extends Controller {
         return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'sites', 'categories', 'departments', 'out_reasons', 'logs'));
     }
 
-    public function logDaily() {
-        $today = Carbon::today()->format('Y-m-d');
+    public function monthlyRecap(Request $request) {
+        $month = $request->input('month', Carbon::now()->format('Y-m'));
+        $start = Carbon::parse($month)->startOfMonth();
+        $end = Carbon::parse($month)->endOfMonth();
         
-        // 1. Fetch records modified today (00:00 - 23:59)
-        $currentRecords = Manpower::whereDate('updated_at', $today)->get();
+        $logs = ManpowerLog::whereBetween('log_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])->orderBy('log_date')->get();
+        $activeMatrix = [];
         
-        if ($currentRecords->isEmpty()) {
-            return back()->with('error', 'No modified data found for today (' . $today . ').');
+        foreach ($logs as $log) {
+            foreach ($log->content as $entry) {
+                $entry = (object)$entry;
+                $id = $entry->id;
+                
+                if (!isset($activeMatrix[$id])) {
+                    $activeMatrix[$id] = [
+                        'name' => $entry->name,
+                        'nrp' => $entry->nrp,
+                        'company' => $entry->company,
+                        'role' => $entry->role,
+                        'category' => $entry->category,
+                        'site' => $entry->site,
+                        'total_mh' => 0
+                    ];
+                }
+                $activeMatrix[$id]['total_mh'] += isset($entry->manhours) ? (float)$entry->manhours : 0;
+            }
+        }
+        usort($activeMatrix, fn($a, $b) => strcmp($a['name'], $b['name']));
+
+        $inactiveData = Manpower::whereBetween('date_out', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                                ->orderBy('date_out')
+                                ->get();
+
+        $totals = [
+            'active_mp' => count($activeMatrix),
+            'total_mh' => array_sum(array_column($activeMatrix, 'total_mh')),
+            'out_mp' => $inactiveData->count()
+        ];
+
+        return view('dash.manpower-monthly', compact('activeMatrix', 'inactiveData', 'month', 'totals'));
+    }
+
+    public function import(Request $request) {
+        $month = $request->input('month', Carbon::now()->format('Y-m'));
+        return view('dash.manpower-import', compact('month'));
+    }
+
+    public function previewImport(Request $request) {
+        $request->validate([
+            'file' => 'nullable|file',
+            'csv_content' => 'nullable|string'
+        ]);
+        
+        $data = [];
+
+        if ($request->filled('csv_content')) {
+            $tempPath = tempnam(sys_get_temp_dir(), 'imp_');
+            file_put_contents($tempPath, $request->input('csv_content'));
+            $data = $this->parseCsv($tempPath);
+            unlink($tempPath);
+        }
+        elseif ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $data = $this->parseCsv($file->getRealPath());
+        } 
+        else {
+            return back()->with('error', 'No file data received.');
         }
 
-        // 2. Fetch the closest previous log to calculate differences
-        $lastLog = ManpowerLog::where('log_date', '<', $today)
-                    ->orderBy('log_date', 'desc')
-                    ->first();
+        if (empty($data)) {
+            return back()->with('error', 'The file appears to be empty or unreadable.');
+        }
 
-        // 3. Build a map of previous cumulative manhours [id => cumulative_mh]
+        $header = array_map(function($h) {
+            return trim(strtoupper($h));
+        }, array_shift($data)); 
+        
+        $previewData = [];
+        $type = 'unknown';
+
+        if (in_array('TANGGAL OUT', $header)) $type = 'out';
+        elseif (in_array('MANHOURS', $header)) $type = 'in'; // Kept for detection, but value will be recalculated
+        else {
+            return back()->with('error', 'Invalid Format. Required columns "MANHOURS" or "TANGGAL OUT" not found.');
+        }
+
+        foreach ($data as $i => $row) {
+            if (count($row) !== count($header)) continue;
+            if ($i > 50) break; 
+
+            $row = array_combine($header, $row);
+            $nrp = $this->normalizeNrp($row['NRP'] ?? '');
+            
+            if ($type === 'out') {
+                $previewData[] = [
+                    'nrp' => $nrp,
+                    'name' => $row['NAMA'] ?? 'Unknown',
+                    'company' => $row['PERUSAHAAN'] ?? '',
+                    'date_out' => $row['TANGGAL OUT'] ?? null,
+                    'out_reason' => $row['KETERANGAN PEKERJA OUT'] ?? 'RESIGN',
+                    'action' => 'Update Status'
+                ];
+            } else {
+                // Calculation Logic: Effective Days * 12
+                $days = isset($row['HARI KERJA EFEKTIF PERBULAN']) ? (int)$row['HARI KERJA EFEKTIF PERBULAN'] : 0;
+                
+                // Fallback: If days is 0 or invalid, try to use Manhours but sanitize it heavily
+                // However, user specifically asked to correct based on logic 24 -> 288.
+                // If days > 0, we calculate. If days is missing but manhours exists, we check if it's crazy high.
+                
+                if ($days > 0) {
+                    $manhours = $days * 12;
+                } else {
+                    // Try to parse manhours, if > 744 (31*24), it's likely garbage, default to 0
+                    $rawMh = isset($row['MANHOURS']) ? (float)str_replace(',', '', $row['MANHOURS']) : 0;
+                    $manhours = ($rawMh > 744) ? 0 : $rawMh; 
+                }
+
+                $previewData[] = [
+                    'nrp' => $nrp,
+                    'name' => $row['NAMA'] ?? 'Unknown',
+                    'company' => $row['PERUSAHAAN'] ?? '',
+                    'effective_days' => $days,
+                    'manhours' => $manhours,
+                    'site' => $row['CABANG/SITE'] ?? 'SATUI', // Ensure these are captured
+                    'category' => $row['KATEGORI PEKERJA'] ?? 'KARYAWAN',
+                    'department' => $row['DEPARTEMEN'] ?? null,
+                    'role' => $row['JABATAN'] ?? null,
+                    'action' => 'Update/Create'
+                ];
+            }
+        }
+
+        return view('dash.manpower-import', [
+            'month' => $request->input('month'),
+            'previewData' => $previewData,
+            'importType' => $type
+        ]);
+    }
+
+    public function processImport(Request $request) {
+        $data = json_decode($request->input('confirmed_data'), true);
+        $count = 0;
+
+        if ($data) {
+            foreach ($data as $row) {
+                $type = isset($row['date_out']) ? 'out' : 'in';
+                $nrp = $row['nrp'];
+
+                if ($type === 'out') {
+                    if (!$nrp) continue;
+                    $mp = Manpower::where('nrp', $nrp)->first();
+                    if ($mp) {
+                        try {
+                            $dateOut = $row['date_out'] ? Carbon::parse($row['date_out']) : null;
+                        } catch (\Exception $e) {
+                            $dateOut = null; 
+                        }
+
+                        $mp->update([
+                            'status' => 'INACTIVE',
+                            'date_out' => $dateOut,
+                            'out_reason' => $row['out_reason'] ?? 'RESIGN'
+                        ]);
+                        $count++;
+                    }
+                } else {
+                    // Re-Sanitize Manhours to be safe (Effective Days * 12)
+                    $days = isset($row['effective_days']) ? (int)$row['effective_days'] : 0;
+                    $manhours = isset($row['manhours']) ? (float)$row['manhours'] : 0;
+                    
+                    if ($days > 0 && $manhours > 744) {
+                        $manhours = $days * 12; // Force recalculate if raw data slipped through
+                    } elseif ($manhours > 744) {
+                        $manhours = 0; // Prevent crash on huge numbers
+                    }
+
+                    $payload = [
+                        'name' => $row['name'],
+                        'company' => $row['company'],
+                        'effective_days' => $days,
+                        'manhours' => $manhours, 
+                        'status' => 'ACTIVE',
+                        // Ensure default values for required fields that might be missing in older records
+                        'site' => $row['site'] ?? 'SATUI', 
+                        'category' => $row['category'] ?? 'KARYAWAN',
+                        'department' => $row['department'] ?? null,
+                        'role' => $row['role'] ?? null
+                    ];
+
+                    if ($nrp) {
+                        Manpower::updateOrCreate(['nrp' => $nrp], $payload);
+                    } else {
+                        Manpower::updateOrCreate(['name' => $payload['name'], 'company' => $payload['company']], $payload);
+                    }
+                    $count++;
+                }
+            }
+        }
+
+        return redirect()->route('manpower.recap', ['month' => $request->input('month')])
+                         ->with('success', "Import processed. $count records updated.");
+    }
+
+    public function export(Request $request) {
+        $month = $request->input('month');
+        
+        $headers = [
+            'Content-type' => 'text/csv', 
+            'Content-Disposition' => 'attachment; filename=manpower_export_'.($month ?? 'master').'.csv',
+            'Pragma' => 'no-cache', 
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0', 
+            'Expires' => '0'
+        ];
+        
+        $callback = function() use ($month) {
+            $file = fopen('php://output', 'w');
+            
+            if ($month) {
+                // Export Monthly Recap Data
+                fputcsv($file, ['Month: ' . $month]);
+                fputcsv($file, []);
+                
+                // Section 1: Active & Manhours
+                fputcsv($file, ['SECTION: ACTIVE MANPOWER & ACCUMULATED HOURS']);
+                fputcsv($file, ['Name', 'NRP', 'Company', 'Role', 'Category', 'Site', 'Accumulated Hours (Month)']);
+                
+                $start = Carbon::parse($month)->startOfMonth();
+                $end = Carbon::parse($month)->endOfMonth();
+                $logs = ManpowerLog::whereBetween('log_date', [$start, $end])->get();
+                $active = [];
+                
+                foreach ($logs as $log) {
+                    foreach ($log->content as $entry) {
+                        $entry = (object)$entry;
+                        $id = $entry->id;
+                        if (!isset($active[$id])) {
+                            $active[$id] = $entry;
+                            $active[$id]->total = 0;
+                        }
+                        $active[$id]->total += isset($entry->manhours) ? (float)$entry->manhours : 0;
+                    }
+                }
+                
+                foreach ($active as $row) {
+                    fputcsv($file, [$row->name, $row->nrp, $row->company, $row->role, $row->category, $row->site, $row->total]);
+                }
+
+                fputcsv($file, []);
+                
+                // Section 2: Out
+                fputcsv($file, ['SECTION: INACTIVE / OUT']);
+                fputcsv($file, ['Name', 'NRP', 'Company', 'Date Out', 'Reason']);
+                $outs = Manpower::whereBetween('date_out', [$start, $end])->get();
+                foreach ($outs as $out) {
+                    fputcsv($file, [$out->name, $out->nrp, $out->company, $out->date_out, $out->out_reason]);
+                }
+
+            } else {
+                // Export Master Data
+                $columns = ['ID', 'Site', 'Category', 'Company', 'NRP', 'Name', 'Department', 'Role', 'Join Date', 'End Date', 'Effective Days', 'Manhours', 'Status', 'Date Out', 'Out Reason'];
+                fputcsv($file, $columns);
+                Manpower::chunk(500, function($rows) use ($file) {
+                    foreach ($rows as $row) {
+                        fputcsv($file, [
+                            $row->id, $row->site, $row->category, $row->company, $row->nrp, $row->name, 
+                            $row->department, $row->role, $row->join_date, $row->end_date, 
+                            $row->effective_days, $row->manhours, $row->status, $row->date_out, $row->out_reason
+                        ]);
+                    }
+                });
+            }
+            fclose($file);
+        };
+        
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function logDaily() {
+        $today = Carbon::today()->format('Y-m-d');
+        $currentRecords = Manpower::whereDate('updated_at', $today)->get();
+        if ($currentRecords->isEmpty()) return back()->with('error', 'No modified data found for today (' . $today . ').');
+
+        $lastLog = ManpowerLog::where('log_date', '<', $today)->orderBy('log_date', 'desc')->first();
         $previousData = [];
         if ($lastLog && !empty($lastLog->content)) {
             foreach ($lastLog->content as $item) {
-                // Ensure array format whether stored as object or array
                 $item = (array)$item;
                 $previousData[$item['id']] = $item['cumulative_mh'] ?? 0;
             }
@@ -120,45 +411,23 @@ class ManpowerCtrl extends Controller {
         $totalDailyMh = 0;
 
         foreach ($currentRecords as $record) {
-            // Logic: Daily Delta = Current Cumulative - Previous Cumulative
             $prevMh = $previousData[$record->id] ?? 0;
-            $currentMh = $record->manhours; // This is cumulative in DB
+            $currentMh = $record->manhours;
             $dailyMh = $currentMh - $prevMh;
 
-            // Optional: Prevent negative daily hours if data is inconsistent, 
-            // strictly speaking delta shouldn't be negative unless correction.
-            // keeping it raw allows admins to see issues.
-
             $logContent[] = [
-                'id' => $record->id,
-                'name' => $record->name,
-                'nrp' => $record->nrp,
-                'company' => $record->company,
-                'site' => $record->site,
-                'role' => $record->role,
-                'department' => $record->department,
-                'category' => $record->category,
-                'end_date' => $record->end_date,
-                'status' => $record->status,
-                'out_reason' => $record->out_reason,
-                
-                // Analytics Data
-                'cumulative_mh' => $currentMh,
-                'previous_mh' => $prevMh,
-                'manhours' => $dailyMh, // Store delta as the main 'manhours' for this log
+                'id' => $record->id, 'name' => $record->name, 'nrp' => $record->nrp,
+                'company' => $record->company, 'site' => $record->site, 'role' => $record->role,
+                'department' => $record->department, 'category' => $record->category,
+                'end_date' => $record->end_date, 'status' => $record->status, 'out_reason' => $record->out_reason,
+                'cumulative_mh' => $currentMh, 'previous_mh' => $prevMh, 'manhours' => $dailyMh,
             ];
-
             $totalDailyMh += $dailyMh;
         }
 
-        // 4. Save Log
         ManpowerLog::updateOrCreate(
             ['log_date' => $today],
-            [
-                'content' => $logContent,
-                'total_mp' => count($logContent),
-                'total_mh' => $totalDailyMh
-            ]
+            ['content' => $logContent, 'total_mp' => count($logContent), 'total_mh' => $totalDailyMh]
         );
 
         return back()->with('success', 'Daily recap for '.$today.' calculated. Total Daily Hours: ' . number_format($totalDailyMh, 2));
@@ -176,39 +445,22 @@ class ManpowerCtrl extends Controller {
 
     public function updateLog(Request $r, $id) {
         $log = ManpowerLog::findOrFail($id);
-        
         $val = $r->validate([
-            'items' => 'required|array',
-            'items.*.name' => 'required|string',
-            'items.*.manhours' => 'required|numeric', // Daily Hours
-            'items.*.cumulative_mh' => 'nullable|numeric',
-            'items.*.site' => 'required|string',
-            'items.*.company' => 'required|string',
-            'items.*.category' => 'required|string',
+            'items' => 'required|array', 'items.*.name' => 'required|string',
+            'items.*.manhours' => 'required|numeric', 'items.*.cumulative_mh' => 'nullable|numeric',
+            'items.*.site' => 'required|string', 'items.*.company' => 'required|string', 'items.*.category' => 'required|string',
         ]);
-
         $items = array_values($val['items']);
-        
-        // Auto-calculate new totals from the audited items
-        $total_mp = count($items);
-        $total_mh = collect($items)->sum('manhours'); // Summing daily deltas
-
-        $log->update([
-            'content' => $items,
-            'total_mp' => $total_mp,
-            'total_mh' => $total_mh
-        ]);
-
+        $log->update(['content' => $items, 'total_mp' => count($items), 'total_mh' => collect($items)->sum('manhours')]);
         return redirect()->route('manpower.log.show', $id)->with('success', 'Log audit saved. Totals recalculated.');
     }
 
     public function checkNrp(Request $request) {
         $nrp = $request->query('nrp');
-        $ignoreId = $request->query('ignore_id');
         $cleanNrp = $this->normalizeNrp($nrp);
         if (!$cleanNrp) return response()->json(['exists' => false]);
         $query = Manpower::where('nrp', $cleanNrp);
-        if ($ignoreId) $query->where('id', '!=', $ignoreId);
+        if ($request->query('ignore_id')) $query->where('id', '!=', $request->query('ignore_id'));
         return response()->json(['exists' => $query->exists()]);
     }
 
@@ -236,7 +488,16 @@ class ManpowerCtrl extends Controller {
     }
 
     public function show(Manpower $manpower) {
-        return view('dash.manpower-show', ['mp' => $manpower]);
+        $recentLogs = ManpowerLog::orderBy('log_date', 'desc')->take(30)->get();
+        $history = [];
+        foreach ($recentLogs as $log) {
+            $entry = collect($log->content)->firstWhere('id', $manpower->id);
+            if ($entry) {
+                $entry = (object)$entry;
+                $history[] = ['date' => $log->log_date, 'manhours' => $entry->manhours ?? 0, 'cumulative' => $entry->cumulative_mh ?? 0, 'role' => $entry->role ?? '-'];
+            }
+        }
+        return view('dash.manpower-show', ['mp' => $manpower, 'history' => $history]);
     }
 
     public function edit(Manpower $manpower) {

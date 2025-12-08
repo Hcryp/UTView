@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('manpower_logs', function (Blueprint $table) {
             $table->id();
             $table->date('log_date')->unique();
-            $table->json('content'); // Stores the raw rows for audit
+            $table->json('content');
             $table->integer('total_mp')->default(0);
             $table->decimal('total_mh', 15, 2)->default(0);
             $table->timestamps();

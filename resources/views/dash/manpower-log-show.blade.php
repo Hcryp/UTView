@@ -40,7 +40,7 @@
                     @foreach($log->content as $index => $row)
                     @php 
                         $row = (object) $row;
-                        $daily = $row->manhours ?? 0; // In new structure, manhours is the daily delta
+                        $daily = $row->manhours ?? 0;
                         $cumul = $row->cumulative_mh ?? 0;
                         $prev = $row->previous_mh ?? 0;
                     @endphp

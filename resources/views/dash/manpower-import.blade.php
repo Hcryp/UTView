@@ -2,7 +2,7 @@
 @section('content')
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 
-<div class="max-w-4xl mx-auto mt-10">
+<div class="max-w-5xl mx-auto mt-10">
     <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
         
         <div class="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
@@ -21,7 +21,6 @@
             </div>
         </div>
 
-        {{-- Validation Errors --}}
         @if($errors->any())
         <div class="p-4 bg-red-50 border-b border-red-100 text-red-700 text-xs">
             <ul class="list-disc pl-5">
@@ -35,14 +34,12 @@
         </div>
         @endif
 
-        {{-- Processing Status --}}
         <div id="processing-msg" class="hidden p-4 bg-blue-50 border-b border-blue-100 text-blue-800 text-xs font-bold flex items-center gap-2">
             <svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             Converting Excel file... Please wait.
         </div>
 
         @if(isset($previewData) && count($previewData) > 0)
-            {{-- Preview State --}}
             <div class="p-6">
                 <div class="mb-4 flex items-center justify-between">
                     <span class="text-sm font-bold text-slate-600 uppercase tracking-wide">Previewing {{ count($previewData) }} Records (Type: {{ strtoupper($importType) }})</span>
@@ -51,12 +48,14 @@
                 
                 <div class="border rounded-lg overflow-hidden mb-6 max-h-96 overflow-y-auto relative">
                     <table class="w-full text-xs text-left relative">
-                        <thead class="bg-slate-100 text-slate-600 font-bold uppercase sticky top-0 shadow-sm">
+                        <thead class="bg-slate-100 text-slate-600 font-bold uppercase sticky top-0 shadow-sm z-10">
                             <tr>
                                 <th class="p-3 border-b bg-slate-100">NRP</th>
                                 <th class="p-3 border-b bg-slate-100">Name</th>
                                 @if($importType === 'in')
                                     <th class="p-3 border-b bg-slate-100">Company</th>
+                                    <th class="p-3 border-b bg-slate-100">Join Date</th>
+                                    <th class="p-3 border-b bg-slate-100">End Contract</th>
                                     <th class="p-3 border-b text-right bg-slate-100">Manhours</th>
                                 @else
                                     <th class="p-3 border-b bg-slate-100">Date Out</th>
@@ -72,6 +71,8 @@
                                 <td class="p-3 font-bold text-slate-700">{{ $row['name'] }}</td>
                                 @if($importType === 'in')
                                     <td class="p-3 text-slate-500">{{ $row['company'] }}</td>
+                                    <td class="p-3 text-slate-600 whitespace-nowrap">{{ $row['join_date'] ? \Carbon\Carbon::parse($row['join_date'])->format('d M Y') : '-' }}</td>
+                                    <td class="p-3 text-slate-600 whitespace-nowrap">{{ $row['end_date'] ? \Carbon\Carbon::parse($row['end_date'])->format('d M Y') : '-' }}</td>
                                     <td class="p-3 text-right font-mono">{{ $row['manhours'] }}</td>
                                 @else
                                     <td class="p-3 text-red-600 font-bold">{{ $row['date_out'] }}</td>
@@ -102,7 +103,6 @@
             </div>
 
         @else
-            {{-- Upload State --}}
             <form id="uploadForm" action="{{ route('manpower.import.preview') }}" method="POST" enctype="multipart/form-data" class="p-6">
                 @csrf
                 <input type="hidden" name="month" value="{{ $month }}">
@@ -133,59 +133,30 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const form = document.getElementById('uploadForm');
-        const fileInput = document.getElementById('fileInput');
-        const csvContentInput = document.getElementById('csvContentInput');
-        const processingMsg = document.getElementById('processing-msg');
-        const submitBtn = document.getElementById('submitBtn');
-
-        if(form) {
-            form.addEventListener('submit', function(e) {
-                const file = fileInput.files[0];
-                if (!file) return;
-
-                const fileName = file.name.toLowerCase();
-                if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
-                    e.preventDefault(); // Stop normal submission
-                    
-                    // Show processing UI
-                    processingMsg.classList.remove('hidden');
-                    submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                    submitBtn.disabled = true;
-
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        try {
-                            const data = new Uint8Array(e.target.result);
-                            const workbook = XLSX.read(data, {type: 'array'});
-                            
-                            // Get first sheet
-                            const firstSheetName = workbook.SheetNames[0];
-                            const worksheet = workbook.Sheets[firstSheetName];
-                            
-                            // Convert to CSV
-                            const csv = XLSX.utils.sheet_to_csv(worksheet);
-                            
-                            // Populate hidden input and submit
-                            csvContentInput.value = csv;
-                            
-                            // Remove file input name so it's not sent as binary
-                            fileInput.removeAttribute('name');
-                            
-                            form.submit();
-                        } catch (err) {
-                            alert("Error converting Excel file. Please try saving as CSV manually.");
-                            processingMsg.classList.add('hidden');
-                            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                            submitBtn.disabled = false;
-                        }
-                    };
-                    reader.readAsArrayBuffer(file);
+document.addEventListener('DOMContentLoaded',()=>{
+    const f=document.getElementById('uploadForm'),fi=document.getElementById('fileInput'),ci=document.getElementById('csvContentInput'),pm=document.getElementById('processing-msg'),sb=document.getElementById('submitBtn');
+    if(f)f.addEventListener('submit',e=>{
+        const file=fi.files[0];
+        if(!file)return;
+        const fn=file.name.toLowerCase();
+        if(fn.endsWith('.xlsx')||fn.endsWith('.xls')){
+            e.preventDefault();
+            pm.classList.remove('hidden');sb.classList.add('opacity-50','cursor-not-allowed');sb.disabled=true;
+            const r=new FileReader();
+            r.onload=ev=>{
+                try{
+                    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+                    ci.value=XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
+                    fi.removeAttribute('name');
+                    f.submit();
+                }catch(err){
+                    alert("Error converting Excel file. Please try saving as CSV manually.");
+                    pm.classList.add('hidden');sb.classList.remove('opacity-50','cursor-not-allowed');sb.disabled=false;
                 }
-                // If CSV, let it submit normally
-            });
+            };
+            r.readAsArrayBuffer(file);
         }
     });
+});
 </script>
 @endsection

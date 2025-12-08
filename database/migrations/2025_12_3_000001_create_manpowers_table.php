@@ -10,30 +10,20 @@ return new class extends Migration
     {
         Schema::create('manpowers', function (Blueprint $table) {
             $table->id();
-            
-            // Kolom existing yang penting untuk sistem
-            $table->string('site')->index(); // Tetap diperlukan untuk filter Satui/Batulicin
-            $table->string('category');      // KARYAWAN, KONTRAKTOR, MAGANG
-            
-            // Kolom Audit (Sesuai Request)
-            $table->string('company');       // PERUSAHAAN
-            $table->string('nrp')->nullable(); // NRP
-            $table->string('name');          // NAMA
-            $table->string('department')->nullable(); // DEPARTEMEN (Baru)
-            $table->string('role')->nullable();       // JABATAN
-            
-            $table->date('join_date')->nullable();    // MULAI KONTRAK
-            $table->date('end_date')->nullable();     // AKHIR KONTRAK
-            
-            $table->integer('effective_days')->default(0); // HARI KERJA EFEKTIF (Baru)
-            $table->decimal('manhours', 10, 2)->default(0); // MANHOURS
-            
-            $table->date('date_out')->nullable();     // TANGGAL OUT (Baru)
-            $table->string('out_reason')->nullable(); // KETERANGAN PEKERJA OUT (Baru)
-            
-            // Status sistem (Active/Resign/Mutasi) - bisa diisi otomatis dari out_reason jika perlu
-            $table->string('status')->default('ACTIVE'); 
-            
+            $table->string('site')->index();
+            $table->string('category');
+            $table->string('company');
+            $table->string('nrp')->nullable();
+            $table->string('name');
+            $table->string('department')->nullable();
+            $table->string('role')->nullable();
+            $table->date('join_date')->nullable();
+            $table->date('end_date')->nullable();
+            $table->integer('effective_days')->default(0);
+            $table->decimal('manhours', 10, 2)->default(0);
+            $table->date('date_out')->nullable();
+            $table->string('out_reason')->nullable();
+            $table->string('status')->default('ACTIVE');
             $table->timestamps();
         });
     }

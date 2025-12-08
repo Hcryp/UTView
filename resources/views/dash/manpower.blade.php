@@ -217,55 +217,10 @@
 
 <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
 <script>
-function toggleSort(field) {
-    const hiddenSort = document.getElementById('hidden_sort'), hiddenDir = document.getElementById('hidden_dir');
-    hiddenDir.value = (hiddenSort.value === field) ? (hiddenDir.value === 'asc' ? 'desc' : 'asc') : 'asc';
-    hiddenSort.value = field;
-    triggerFilter();
-}
-let t, ac;
-function triggerFilter() {
-    clearTimeout(t);
-    t = setTimeout(() => {
-        const f = document.getElementById('filterForm'), c = document.getElementById('tableContainer');
-        if (ac) ac.abort();
-        ac = new AbortController();
-        const params = new URLSearchParams(new FormData(f));
-        let url = "{{ route('manpower.index') }}?" + params.toString();
-        c.classList.add('opacity-50', 'pointer-events-none');
-        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: ac.signal })
-            .then(r => r.text()).then(h => {
-                c.innerHTML = h; c.classList.remove('opacity-50', 'pointer-events-none');
-                window.history.replaceState({}, '', url); ac = null; rebindLinks(); 
-            }).catch(e => { if(e.name !== 'AbortError') console.error(e); });
-    }, 300);
-}
-function rebindLinks() {
-    const c = document.getElementById('tableContainer');
-    c.querySelectorAll('.pagination a').forEach(a => {
-        a.addEventListener('click', e => {
-            e.preventDefault();
-            if (ac) ac.abort();
-            ac = new AbortController();
-            c.classList.add('opacity-50', 'pointer-events-none');
-            fetch(a.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, signal: ac.signal }).then(r => r.text()).then(h => {
-                c.innerHTML = h; c.classList.remove('opacity-50', 'pointer-events-none');
-                window.history.replaceState({}, '', a.href); ac = null; rebindLinks();
-            });
-        });
-    });
-}
-document.addEventListener('DOMContentLoaded', () => {
-    ['searchInput','filterSite','filterStatus','filterCategory','filterDept'].forEach(id => {
-        const el = document.getElementById(id); if(el) el.addEventListener(el.type === 'text' ? 'input' : 'change', triggerFilter);
-    });
-    document.getElementById('resetBtn').addEventListener('click', () => {
-        document.getElementById('filterForm').reset();
-        document.getElementById('hidden_sort').value = 'name';
-        document.getElementById('hidden_dir').value = 'asc';
-        triggerFilter();
-    });
-    rebindLinks();
-});
+function toggleSort(f){const s=document.getElementById('hidden_sort'),d=document.getElementById('hidden_dir');d.value=(s.value===f)?(d.value==='asc'?'desc':'asc'):'asc';s.value=f;triggerFilter()}
+let t,ac;
+function triggerFilter(){clearTimeout(t);t=setTimeout(()=>{const f=document.getElementById('filterForm'),c=document.getElementById('tableContainer');if(ac)ac.abort();ac=new AbortController();const p=new URLSearchParams(new FormData(f));let u="{{ route('manpower.index') }}?"+p.toString();c.classList.add('opacity-50','pointer-events-none');fetch(u,{headers:{'X-Requested-With':'XMLHttpRequest'},signal:ac.signal}).then(r=>r.text()).then(h=>{c.innerHTML=h;c.classList.remove('opacity-50','pointer-events-none');window.history.replaceState({},'',u);ac=null;rebindLinks()}).catch(e=>{if(e.name!=='AbortError')console.error(e)})},300)}
+function rebindLinks(){const c=document.getElementById('tableContainer');c.querySelectorAll('.pagination a').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();if(ac)ac.abort();ac=new AbortController();c.classList.add('opacity-50','pointer-events-none');fetch(a.href,{headers:{'X-Requested-With':'XMLHttpRequest'},signal:ac.signal}).then(r=>r.text()).then(h=>{c.innerHTML=h;c.classList.remove('opacity-50','pointer-events-none');window.history.replaceState({},'',a.href);ac=null;rebindLinks()})})})}
+document.addEventListener('DOMContentLoaded',()=>{['searchInput','filterSite','filterStatus','filterCategory','filterDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener(el.type==='text'?'input':'change',triggerFilter)});document.getElementById('resetBtn').addEventListener('click',()=>{document.getElementById('filterForm').reset();document.getElementById('hidden_sort').value='name';document.getElementById('hidden_dir').value='asc';triggerFilter()});rebindLinks()});
 </script>
 @endsection

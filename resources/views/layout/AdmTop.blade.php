@@ -12,7 +12,8 @@
             <p class="font-bold text-xs">{{ Auth::user()->username ?? 'Guest' }}</p>
             <p class="text-[10px] opacity-70">Administrator</p>
         </div>
-        <div class="w-8 h-8 bg-gray-600 rounded-full border-2 border-gray-400"></div> <form action="{{ route('logout') }}" method="POST">
+        <div class="w-8 h-8 bg-gray-600 rounded-full border-2 border-gray-400"></div>
+        <form action="{{ route('logout') }}" method="POST">
             @csrf
             <button type="submit" class="bg-red-600 hover:bg-red-700 text-xs font-bold py-1 px-3 rounded transition">LOGOUT</button>
         </form>

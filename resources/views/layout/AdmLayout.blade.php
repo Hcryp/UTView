@@ -5,8 +5,8 @@
     <title>UTView Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .ut-blue { background-color: #002d5b; } /* UT Corporate Blue */
-        .ut-yellow { background-color: #facc15; } /* UT Safety Yellow */
+        .ut-blue { background-color: #002d5b; }
+        .ut-yellow { background-color: #facc15; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans text-sm text-slate-800">

@@ -52,7 +52,6 @@
                             <tr class="hover:bg-blue-50/30 transition-colors group">
                                 <td class="px-4 py-2 text-center text-slate-400 font-mono text-xs" x-text="index + 1"></td>
                                 
-                                {{-- Hidden Fields --}}
                                 <input type="hidden" :name="'items['+index+'][id]'" :value="item.id">
                                 <input type="hidden" :name="'items['+index+'][join_date]'" :value="item.join_date">
                                 <input type="hidden" :name="'items['+index+'][end_date]'" :value="item.end_date">
@@ -74,7 +73,6 @@
                                     </div>
                                 </td>
                                 
-                                {{-- Read-only Calc Columns --}}
                                 <td class="px-4 py-2 text-right font-mono text-xs text-slate-400 bg-gray-50/50">
                                     <span x-text="formatNumber(item.previous_mh)"></span>
                                 </td>
@@ -84,7 +82,6 @@
                                            class="w-full text-right text-xs font-mono text-slate-500 border-0 border-b border-dashed border-slate-300 focus:border-indigo-500 focus:ring-0 bg-transparent px-0 py-1">
                                 </td>
 
-                                {{-- Editable Daily Delta --}}
                                 <td class="px-4 py-2 bg-blue-50/30">
                                     <input type="number" step="0.01" :name="'items['+index+'][manhours]'" x-model.number="item.manhours" 
                                            @input="updateCumulative(index)"
@@ -110,32 +107,15 @@
 
 <script src="//unpkg.com/alpinejs" defer></script>
 <script>
-function logEditor() {
+function logEditor(){
     return {
-        items: @json($log->content).map(i => ({...i, previous_mh: parseFloat(i.previous_mh)||0, cumulative_mh: parseFloat(i.cumulative_mh)||0, manhours: parseFloat(i.manhours)||0})),
-        get totalMp() { return this.items.length; },
-        get totalMh() { return this.items.reduce((sum, item) => sum + (parseFloat(item.manhours) || 0), 0); },
-        
-        // When Daily is changed, update Cumulative
-        updateCumulative(index) {
-            const item = this.items[index];
-            item.cumulative_mh = (item.previous_mh + parseFloat(item.manhours || 0)).toFixed(2);
-        },
-        
-        // When Cumulative is changed, update Daily (Delta)
-        updateDelta(index) {
-            const item = this.items[index];
-            item.manhours = (parseFloat(item.cumulative_mh || 0) - item.previous_mh).toFixed(2);
-        },
-
-        remove(index) {
-            if(confirm('Remove this entry from the log? This affects daily totals only.')) {
-                this.items.splice(index, 1);
-            }
-        },
-        formatNumber(num) {
-            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
-        }
+        items:@json($log->content).map(i=>({...i,previous_mh:parseFloat(i.previous_mh)||0,cumulative_mh:parseFloat(i.cumulative_mh)||0,manhours:parseFloat(i.manhours)||0})),
+        get totalMp(){return this.items.length},
+        get totalMh(){return this.items.reduce((s,i)=>s+(parseFloat(i.manhours)||0),0)},
+        updateCumulative(idx){const i=this.items[idx];i.cumulative_mh=(i.previous_mh+parseFloat(i.manhours||0)).toFixed(2)},
+        updateDelta(idx){const i=this.items[idx];i.manhours=(parseFloat(i.cumulative_mh||0)-i.previous_mh).toFixed(2)},
+        remove(idx){if(confirm('Remove this entry?'))this.items.splice(idx,1)},
+        formatNumber(n){return new Intl.NumberFormat('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n)}
     }
 }
 </script>

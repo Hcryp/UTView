@@ -6,13 +6,11 @@
         <h2 class="text-2xl font-extrabold text-slate-800 mt-2">{{ $title }}</h2>
     </div>
 
-    {{-- Added x-init watcher to clear separation details when status becomes ACTIVE --}}
     <form x-data="{ 
-            status: '{{ old('status', $mp->status ?? 'ACTIVE') }}',
+            status: @js(old('status', $mp->status ?? 'ACTIVE')),
             init() {
                 this.$watch('status', value => {
                     if (value === 'ACTIVE') {
-                        // Clear the separation fields when switching back to ACTIVE
                         if(this.$refs.date_out) this.$refs.date_out.value = '';
                         if(this.$refs.out_reason) this.$refs.out_reason.value = '';
                     }
@@ -34,19 +32,25 @@
             
             <div class="col-span-2 md:col-span-1"
                  x-data="{
-                    nrp: '{{ old('nrp', $mp->nrp) }}',
+                    nrp: @js(old('nrp', $mp->nrp)),
                     checking: false,
                     isTaken: false,
                     placeholders: ['-', 'no id', 'n/a', 'none', 'unknown', 'no_id', 'no-id'],
+                    currentId: @js($mp->id),
                     check() {
-                        let val = this.nrp.trim().toLowerCase();
+                        let val = (this.nrp || '').trim().toLowerCase();
                         if (val.length < 1 || this.placeholders.includes(val)) { 
                             this.isTaken = false; 
                             return; 
                         }
                         
                         this.checking = true;
-                        fetch('{{ route('manpower.check-nrp') }}?nrp=' + encodeURIComponent(this.nrp) + '&ignore_id={{ $mp->id }}')
+                        let url = '{{ route('manpower.check-nrp') }}?nrp=' + encodeURIComponent(this.nrp);
+                        if (this.currentId) {
+                            url += '&ignore_id=' + this.currentId;
+                        }
+
+                        fetch(url)
                             .then(res => res.json())
                             .then(data => {
                                 this.isTaken = data.exists;
@@ -62,7 +66,7 @@
                            x-model="nrp"
                            @input.debounce.800ms="check()"
                            class="w-full text-sm border-slate-300 bg-slate-100 rounded focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors shadow-sm"
-                           :class="{'border-red-500 focus:border-red-500 focus:ring-red-500': isTaken, 'border-green-500': !isTaken && nrp && !checking && !placeholders.includes(nrp.toLowerCase())}">
+                           :class="{'border-red-500 focus:border-red-500 focus:ring-red-500': isTaken, 'border-green-500': !isTaken && nrp && !checking && !placeholders.includes((nrp || '').toLowerCase())}">
                     
                     <div x-show="checking" class="absolute right-3 top-2.5 text-slate-400">
                         <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -87,10 +91,10 @@
                 
                 <div x-data="{
                     open: false,
-                    search: '{{ old('site', $mp->site) }}',
+                    search: @js(old('site', $mp->site)),
                     options: @js($opt_sites),
                     filteredOptions() {
-                        return this.options.filter(i => i.toLowerCase().includes(this.search.toLowerCase()))
+                        return this.options.filter(i => i.toLowerCase().includes((this.search || '').toLowerCase()))
                     },
                     select(val) {
                         this.search = val;
@@ -103,7 +107,7 @@
                         <input type="text" name="site" x-ref="input" x-model="search" @focus="open = true" @input="open = true"
                                class="w-full text-sm border-slate-300 bg-slate-100 rounded placeholder:text-slate-400 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 pr-16 transition-colors shadow-sm" 
                                placeholder="Select Site..." autocomplete="off" required>
-                        <button type="button" x-show="search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
+                        <button type="button" x-show="search && search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
                                 class="absolute inset-y-0 right-7 flex items-center justify-center w-6 h-full text-slate-300 hover:text-red-500 transition-colors">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
@@ -121,10 +125,10 @@
 
                 <div x-data="{
                     open: false,
-                    search: '{{ old('category', $mp->category) }}',
+                    search: @js(old('category', $mp->category)),
                     options: @js($opt_categories),
                     filteredOptions() {
-                        return this.options.filter(i => i.toLowerCase().includes(this.search.toLowerCase()))
+                        return this.options.filter(i => i.toLowerCase().includes((this.search || '').toLowerCase()))
                     },
                     select(val) {
                         this.search = val;
@@ -137,7 +141,7 @@
                         <input type="text" name="category" x-ref="input" x-model="search" @focus="open = true" @input="open = true"
                                class="w-full text-sm border-slate-300 bg-slate-100 rounded placeholder:text-slate-400 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 pr-16 transition-colors shadow-sm" 
                                placeholder="Select Category..." autocomplete="off" required>
-                        <button type="button" x-show="search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
+                        <button type="button" x-show="search && search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
                                 class="absolute inset-y-0 right-7 flex items-center justify-center w-6 h-full text-slate-300 hover:text-red-500 transition-colors">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
@@ -156,10 +160,10 @@
                 <div class="md:col-span-2" 
                      x-data="{
                         open: false,
-                        search: '{{ old('company', $mp->company) }}',
+                        search: @js(old('company', $mp->company)),
                         options: @js($existing_companies),
                         filteredOptions() {
-                            return this.options.filter(i => i.toLowerCase().includes(this.search.toLowerCase()))
+                            return this.options.filter(i => i.toLowerCase().includes((this.search || '').toLowerCase()))
                         },
                         select(val) {
                             this.search = val;
@@ -172,7 +176,7 @@
                         <input type="text" name="company" x-ref="input" x-model="search" @focus="open = true" @input="open = true"
                                class="w-full text-sm border-slate-300 bg-slate-100 rounded placeholder:text-slate-400 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 pr-16 transition-colors shadow-sm" 
                                placeholder="Type to search existing or enter new..." autocomplete="off" required>
-                        <button type="button" x-show="search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
+                        <button type="button" x-show="search && search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
                                 class="absolute inset-y-0 right-7 flex items-center justify-center w-6 h-full text-slate-300 hover:text-red-500 transition-colors">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
@@ -190,10 +194,10 @@
 
                 <div x-data="{
                         open: false,
-                        search: '{{ old('role', $mp->role) }}',
+                        search: @js(old('role', $mp->role)),
                         options: @js($existing_roles),
                         filteredOptions() {
-                            return this.options.filter(i => i.toLowerCase().includes(this.search.toLowerCase()))
+                            return this.options.filter(i => i.toLowerCase().includes((this.search || '').toLowerCase()))
                         },
                         select(val) {
                             this.search = val;
@@ -206,7 +210,7 @@
                         <input type="text" name="role" x-ref="input" x-model="search" @focus="open = true" @input="open = true"
                                class="w-full text-sm border-slate-300 bg-slate-100 rounded placeholder:text-slate-400 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 pr-16 transition-colors shadow-sm" 
                                placeholder="e.g. Mechanic II" autocomplete="off">
-                        <button type="button" x-show="search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
+                        <button type="button" x-show="search && search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
                                 class="absolute inset-y-0 right-7 flex items-center justify-center w-6 h-full text-slate-300 hover:text-red-500 transition-colors">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
@@ -224,10 +228,10 @@
 
                 <div x-data="{
                         open: false,
-                        search: '{{ old('department', $mp->department) }}',
+                        search: @js(old('department', $mp->department)),
                         options: @js($opt_depts),
                         filteredOptions() {
-                            return this.options.filter(i => i.toLowerCase().includes(this.search.toLowerCase()))
+                            return this.options.filter(i => i.toLowerCase().includes((this.search || '').toLowerCase()))
                         },
                         select(val) {
                             this.search = val;
@@ -240,7 +244,7 @@
                         <input type="text" name="department" x-ref="input" x-model="search" @focus="open = true" @input="open = true"
                                class="w-full text-sm border-slate-300 bg-slate-100 rounded placeholder:text-slate-400 focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 pr-16 transition-colors shadow-sm" 
                                placeholder="Select Department..." autocomplete="off">
-                        <button type="button" x-show="search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
+                        <button type="button" x-show="search && search.length > 0" @click="search = ''; open = true; $nextTick(() => $refs.input.focus())"
                                 class="absolute inset-y-0 right-7 flex items-center justify-center w-6 h-full text-slate-300 hover:text-red-500 transition-colors">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                         </button>
@@ -297,12 +301,10 @@
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 mb-1">Date Out</label>
-                        {{-- Added x-ref for clearing logic --}}
                         <input type="date" name="date_out" x-ref="date_out" value="{{ old('date_out', $mp->date_out) }}" class="w-full text-sm border-red-200 bg-red-50 rounded text-slate-600 focus:bg-white focus:border-red-500 focus:ring-red-200 transition-colors">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 mb-1">Reason (Keterangan)</label>
-                        {{-- Added x-ref for clearing logic --}}
                         <select name="out_reason" x-ref="out_reason" class="w-full text-sm border-red-200 bg-red-50 rounded text-slate-600 focus:bg-white focus:border-red-500 focus:ring-red-200 transition-colors">
                             <option value="">-- Select Reason --</option>
                             @foreach($opt_out_reasons as $reason)

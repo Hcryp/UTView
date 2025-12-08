@@ -132,14 +132,12 @@
     </div>
 </div>
 
-
 <script>
     const commonOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } };
     const utBlue = '#002d5b';
     const utYellow = '#facc15';
     const utGray = '#94a3b8';
 
-    // 1. Accidents
     new Chart(document.getElementById('chartAccident'), {
         type: 'line',
         data: {
@@ -162,7 +160,6 @@
         options: { ...commonOptions, scales: { y: { beginAtZero: true, suggestedMax: 5 } } }
     });
 
-    // 2. MCU Ratio
     new Chart(document.getElementById('chartMCU'), {
         type: 'doughnut',
         data: {
@@ -176,7 +173,6 @@
         options: commonOptions
     });
 
-    // 3. Manpower Satui
     new Chart(document.getElementById('mpSatui'), {
         type: 'pie',
         data: {
@@ -190,7 +186,6 @@
         options: commonOptions
     });
 
-    // 4. Manpower Batulicin
     new Chart(document.getElementById('mpBatu'), {
         type: 'pie',
         data: {
@@ -204,7 +199,6 @@
         options: commonOptions
     });
 
-    // 5. Energy Charts
     const energyLabels = @json($data['energy']['months']);
     
     new Chart(document.getElementById('enElec'), {

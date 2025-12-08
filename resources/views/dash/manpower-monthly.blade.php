@@ -18,7 +18,6 @@
         </div>
     </div>
 
-    {{-- Overview Cards --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="bg-white p-5 rounded-lg shadow-sm border-l-4 border-blue-600">
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active MP (Unique)</p>
@@ -34,7 +33,6 @@
         </div>
     </div>
 
-    {{-- Tabs --}}
     <div class="flex gap-4 border-b border-slate-200">
         <button @click="tab = 'active'" :class="{'border-blue-600 text-blue-700': tab === 'active', 'border-transparent text-slate-500 hover:text-slate-700': tab !== 'active'}" class="pb-3 border-b-2 font-bold text-sm transition-colors uppercase tracking-wide">
             Active Manpower Log
@@ -44,7 +42,6 @@
         </button>
     </div>
 
-    {{-- Active Table --}}
     <div x-show="tab === 'active'" class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col">
         <div class="overflow-auto scrollbar-thin scrollbar-thumb-slate-300">
             <table class="text-sm text-left border-collapse w-full whitespace-nowrap">
@@ -79,7 +76,6 @@
         </div>
     </div>
 
-    {{-- Inactive Table --}}
     <div x-show="tab === 'inactive'" x-cloak class="bg-white rounded-lg shadow-sm border border-red-100 overflow-hidden flex flex-col">
         <div class="overflow-auto scrollbar-thin scrollbar-thumb-slate-300">
             <table class="text-sm text-left border-collapse w-full whitespace-nowrap">
@@ -98,7 +94,7 @@
                             <td class="p-3 text-center text-slate-400 font-mono text-xs">{{ $loop->iteration }}</td>
                             <td class="p-3">
                                 <div class="font-bold text-slate-800">{{ $row->name }}</div>
-                                <div class="text-xs text-slate-500 font-mono">{{ $row->nrp ?? '-' }}</div>
+                                <div class="text-xs text-slate-500 font-mono">{{ $row['nrp'] ?? '-' }}</div>
                             </td>
                             <td class="p-3 text-xs text-slate-500">{{ $row->company }}</td>
                             <td class="p-3 text-xs font-bold text-red-600">

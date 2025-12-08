@@ -18,11 +18,4 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Bootstrap any application services.
      */
-    public function boot(): void
-    {
-        //
-        if ($days = env('TTAD')) {
-                    Carbon::setTestNow(Carbon::now()->addDays((int)$days));
-                }        
-    }
 }

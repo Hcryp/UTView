@@ -8,11 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
-use Carbon\CarbonPeriod;
 
 class ManpowerCtrl extends Controller
 {
-
     private function normalizeNrp($val)
     {
         $normalized = strtolower(trim($val));
@@ -24,36 +22,21 @@ class ManpowerCtrl extends Controller
     {
         $val = trim($val);
         if (empty($val)) return null;
-
         $clean = strtoupper($val);
-        $ignore = ['-', 'KARYAWAN TETAP', 'N/A', 'PERMANENT', 'NO', 'FALSE', '#N/A'];
+        $ignore = ['-', 'KARYAWAN TETAP', 'N/A', 'PERMANENT', 'NO', 'FALSE', '#N/A', 'HABIS KONTRAK'];
         if (in_array($clean, $ignore)) return null;
-
         $clean = str_replace(['.', '_', '/'], '-', $clean);
-
         $months = [
-            'JANUARI' => 'JANUARY', 'JAN' => 'JAN',
-            'FEBRUARI' => 'FEBRUARY', 'PEBRUARI' => 'FEBRUARY', 'PEB' => 'FEB', 'FEB' => 'FEB',
-            'MARET' => 'MARCH', 'MAR' => 'MAR',
-            'APRIL' => 'APRIL', 'APR' => 'APR',
-            'MEI' => 'MAY', 'MAY' => 'MAY',
-            'JUNI' => 'JUNE', 'JUN' => 'JUN',
-            'JULI' => 'JULY', 'JUL' => 'JUL',
-            'AGUSTUS' => 'AUGUST', 'AGT' => 'AUG', 'AGU' => 'AUG', 'AUG' => 'AUG',
-            'SEPTEMBER' => 'SEPTEMBER', 'SEP' => 'SEP',
-            'OKTOBER' => 'OCTOBER', 'OKT' => 'OCT', 'OCT' => 'OCT',
-            'NOVEMBER' => 'NOVEMBER', 'NOP' => 'NOV', 'NOV' => 'NOV',
-            'DESEMBER' => 'DECEMBER', 'DES' => 'DEC', 'DEC' => 'DEC'
+            'JANUARI' => 'JANUARY', 'JAN' => 'JAN', 'FEBRUARI' => 'FEBRUARY', 'PEBRUARI' => 'FEBRUARY', 'PEB' => 'FEB', 'FEB' => 'FEB',
+            'MARET' => 'MARCH', 'MAR' => 'MAR', 'APRIL' => 'APRIL', 'APR' => 'APR', 'MEI' => 'MAY', 'MAY' => 'MAY',
+            'JUNI' => 'JUNE', 'JUN' => 'JUN', 'JULI' => 'JULY', 'JUL' => 'JUL', 'AGUSTUS' => 'AUGUST', 'AGT' => 'AUG', 'AGU' => 'AUG', 'AUG' => 'AUG',
+            'SEPTEMBER' => 'SEPTEMBER', 'SEP' => 'SEP', 'OKTOBER' => 'OCTOBER', 'OKT' => 'OCT', 'OCT' => 'OCT',
+            'NOVEMBER' => 'NOVEMBER', 'NOP' => 'NOV', 'NOV' => 'NOV', 'DESEMBER' => 'DECEMBER', 'DES' => 'DEC', 'DEC' => 'DEC'
         ];
-
         foreach ($months as $id => $en) {
             $clean = preg_replace('/\b' . $id . '\b/', $en, $clean);
         }
-
-        if (preg_match('/^[A-Z]+[\s\-]+\d{4}$/', $clean)) {
-            $clean = "01-" . $clean;
-        }
-
+        if (preg_match('/^[A-Z]+[\s\-]+\d{4}$/', $clean)) $clean = "01-" . $clean;
         try {
             return Carbon::parse($clean)->format('Y-m-d');
         } catch (\Exception $e) {
@@ -76,102 +59,57 @@ class ManpowerCtrl extends Controller
     private function parseCsv($path)
     {
         if (!file_exists($path)) return [];
-
         $handle = fopen($path, 'r');
         if (!$handle) return [];
-
         $firstLine = fgets($handle);
         rewind($handle);
-
         $delimiter = (strpos($firstLine, ';') !== false) ? ';' : ',';
-
         $data = [];
         while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
-            if (isset($row[0])) {
-                $row[0] = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $row[0]);
-            }
+            if (isset($row[0])) $row[0] = preg_replace('/[\x00-\x1F\x80-\xFF]/', '', $row[0]);
             $data[] = $row;
         }
         fclose($handle);
-
         return $data;
     }
 
     public function index(Request $request)
     {
         $query = Manpower::query();
-
-        $query->when($request->search, fn($q) =>
-            $q->where(function ($sub) use ($request) {
-                $sub->where('name', 'like', "%{$request->search}%")
-                    ->orWhere('nrp', 'like', "%{$request->search}%")
-                    ->orWhere('role', 'like', "%{$request->search}%")
-                    ->orWhere('company', 'like', "%{$request->search}%");
-            })
-        );
-
+        $query->when($request->search, fn($q) => $q->where(function ($sub) use ($request) {
+            $sub->where('name', 'like', "%{$request->search}%")->orWhere('nrp', 'like', "%{$request->search}%")
+                ->orWhere('role', 'like', "%{$request->search}%")->orWhere('company', 'like', "%{$request->search}%");
+        }));
         $status = $request->input('status', 'ACTIVE');
-        if ($status === 'ACTIVE') {
-            $query->where('status', 'ACTIVE');
-        } elseif ($status !== 'ALL') {
-            $query->where('status', 'INACTIVE')->when($status !== 'INACTIVE', fn($q) => $q->where('out_reason', $status));
-        }
-
+        if ($status === 'ACTIVE') $query->where('status', 'ACTIVE');
+        elseif ($status !== 'ALL') $query->where('status', 'INACTIVE')->when($status !== 'INACTIVE', fn($q) => $q->where('out_reason', $status));
         $query->when($request->category, fn($q) => $q->where('category', $request->category));
         $query->when($request->department, fn($q) => $q->where('department', $request->department));
         $query->when($request->site, fn($q) => $q->where('site', $request->site));
-
         $summaryQuery = clone $query;
         $sort = $request->input('sort', 'name');
         $dir = $request->input('dir', 'asc');
-
         switch ($sort) {
-            case 'contract':
-                $query->orderByRaw('CASE WHEN end_date IS NULL THEN ' . ($dir === 'asc' ? '1' : '0') . ' ELSE ' . ($dir === 'asc' ? '0' : '1') . ' END, end_date ' . $dir);
-                break;
-            case 'newest':
-                $query->orderBy('created_at', 'desc');
-                break;
-            case 'company':
-                $query->orderBy('company', $dir)->orderBy('site', $dir);
-                break;
-            case 'role':
-                $query->orderBy('role', $dir);
-                break;
-            case 'manhours':
-                $query->orderBy('manhours', $dir);
-                break;
-            case 'status':
-                $query->orderBy('status', $dir)->orderBy('out_reason', $dir);
-                break;
-            default:
-                $query->orderBy('name', $dir);
-                break;
+            case 'contract': $query->orderByRaw('CASE WHEN end_date IS NULL THEN ' . ($dir === 'asc' ? '1' : '0') . ' ELSE ' . ($dir === 'asc' ? '0' : '1') . ' END, end_date ' . $dir); break;
+            case 'newest': $query->orderBy('created_at', 'desc'); break;
+            case 'company': $query->orderBy('company', $dir)->orderBy('site', $dir); break;
+            case 'role': $query->orderBy('role', $dir); break;
+            case 'manhours': $query->orderBy('manhours', $dir); break;
+            case 'status': $query->orderBy('status', $dir)->orderBy('out_reason', $dir); break;
+            default: $query->orderBy('name', $dir); break;
         }
-
-        $detailedTable = $summaryQuery->clone()
-            ->select('category', 'company', DB::raw('count(*) as mp'), DB::raw('sum(manhours) as mh'))
-            ->groupBy('category', 'company')
-            ->orderBy('category', 'desc')->orderBy('company')->get();
-
-        $highLevelTable = $summaryQuery->clone()
-            ->select('category', DB::raw('count(*) as mp'), DB::raw('sum(manhours) as mh'))
+        $detailedTable = $summaryQuery->clone()->select('category', 'company', DB::raw('count(*) as mp'), DB::raw('sum(manhours) as mh'))
+            ->groupBy('category', 'company')->orderBy('category', 'desc')->orderBy('company')->get();
+        $highLevelTable = $summaryQuery->clone()->select('category', DB::raw('count(*) as mp'), DB::raw('sum(manhours) as mh'))
             ->groupBy('category')->orderBy('category', 'desc')->get();
-
         $summary = ['total_mp' => $query->count(), 'total_mh' => $query->sum('manhours')];
         $data = $query->paginate($request->input('per_page', 20))->withQueryString();
-
         $sites = Manpower::distinct()->whereNotNull('site')->orderBy('site')->pluck('site');
         $categories = Manpower::distinct()->whereNotNull('category')->orderBy('category')->pluck('category');
         $departments = Manpower::distinct()->whereNotNull('department')->orderBy('department')->pluck('department');
         $out_reasons = Manpower::distinct()->whereNotNull('out_reason')->orderBy('out_reason')->pluck('out_reason');
-
         $logs = ManpowerLog::orderBy('log_date', 'desc')->limit(5)->get();
-
-        if ($request->ajax()) {
-            return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'sites', 'categories', 'departments', 'out_reasons', 'logs'))->fragment('manpower-table');
-        }
-
+        if ($request->ajax()) return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'sites', 'categories', 'departments', 'out_reasons', 'logs'))->fragment('manpower-table');
         return view('dash.manpower', compact('data', 'summary', 'detailedTable', 'highLevelTable', 'sites', 'categories', 'departments', 'out_reasons', 'logs'));
     }
 
@@ -180,41 +118,24 @@ class ManpowerCtrl extends Controller
         $month = $request->input('month', Carbon::now()->format('Y-m'));
         $start = Carbon::parse($month)->startOfMonth();
         $end = Carbon::parse($month)->endOfMonth();
-
         $logs = ManpowerLog::whereBetween('log_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])->orderBy('log_date')->get();
         $activeMatrix = [];
-
         foreach ($logs as $log) {
             foreach ($log->content as $entry) {
                 $entry = (object)$entry;
                 $id = $entry->id;
-
                 if (!isset($activeMatrix[$id])) {
                     $activeMatrix[$id] = [
-                        'name' => $entry->name,
-                        'nrp' => $entry->nrp,
-                        'company' => $entry->company,
-                        'role' => $entry->role,
-                        'category' => $entry->category,
-                        'site' => $entry->site,
-                        'total_mh' => 0
+                        'name' => $entry->name, 'nrp' => $entry->nrp, 'company' => $entry->company,
+                        'role' => $entry->role, 'category' => $entry->category, 'site' => $entry->site, 'total_mh' => 0
                     ];
                 }
                 $activeMatrix[$id]['total_mh'] += isset($entry->manhours) ? (float)$entry->manhours : 0;
             }
         }
         usort($activeMatrix, fn($a, $b) => strcmp($a['name'], $b['name']));
-
-        $inactiveData = Manpower::whereBetween('date_out', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->orderBy('date_out')
-            ->get();
-
-        $totals = [
-            'active_mp' => count($activeMatrix),
-            'total_mh' => array_sum(array_column($activeMatrix, 'total_mh')),
-            'out_mp' => $inactiveData->count()
-        ];
-
+        $inactiveData = Manpower::whereBetween('date_out', [$start->format('Y-m-d'), $end->format('Y-m-d')])->orderBy('date_out')->get();
+        $totals = ['active_mp' => count($activeMatrix), 'total_mh' => array_sum(array_column($activeMatrix, 'total_mh')), 'out_mp' => $inactiveData->count()];
         return view('dash.manpower-monthly', compact('activeMatrix', 'inactiveData', 'month', 'totals'));
     }
 
@@ -226,13 +147,8 @@ class ManpowerCtrl extends Controller
 
     public function previewImport(Request $request)
     {
-        $request->validate([
-            'file' => 'nullable|file',
-            'csv_content' => 'nullable|string'
-        ]);
-
+        $request->validate(['file' => 'nullable|file', 'csv_content' => 'nullable|string']);
         $data = [];
-
         if ($request->filled('csv_content')) {
             $tempPath = tempnam(sys_get_temp_dir(), 'imp_');
             file_put_contents($tempPath, $request->input('csv_content'));
@@ -244,28 +160,22 @@ class ManpowerCtrl extends Controller
         } else {
             return back()->with('error', 'No file data received.');
         }
+        if (empty($data)) return back()->with('error', 'The file appears to be empty or unreadable.');
 
-        if (empty($data)) {
-            return back()->with('error', 'The file appears to be empty or unreadable.');
-        }
-
-        $header = array_map(function ($h) {
-            return trim(strtoupper($h));
-        }, array_shift($data));
-
+        $header = array_map(fn($h) => trim(strtoupper($h)), array_shift($data));
         $previewData = [];
-        $type = 'unknown';
+        
+        $colDateOut = array_search('TANGGAL OUT', $header);
+        $colManhours = array_search('MANHOURS', $header);
+        $colEffDays = array_search('HARI KERJA EFEKTIF PERBULAN', $header);
+        
+        $type = ($colDateOut !== false) ? 'out' : (($colManhours !== false || $colEffDays !== false) ? 'in' : 'unknown');
 
-        if (in_array('TANGGAL OUT', $header)) $type = 'out';
-        elseif (in_array('MANHOURS', $header)) $type = 'in';
-        else {
-            return back()->with('error', 'Invalid Format. Required columns "MANHOURS" or "TANGGAL OUT" not found.');
-        }
+        if ($type === 'unknown') return back()->with('error', 'Invalid Format. Required columns "MANHOURS", "HARI KERJA EFEKTIF PERBULAN" or "TANGGAL OUT" not found.');
 
         foreach ($data as $i => $row) {
             if (count($row) !== count($header)) continue;
-            if ($i > 50) break;
-
+            
             $row = array_combine($header, $row);
             $nrp = $this->normalizeNrp($row['NRP'] ?? '');
 
@@ -280,13 +190,7 @@ class ManpowerCtrl extends Controller
                 ];
             } else {
                 $days = isset($row['HARI KERJA EFEKTIF PERBULAN']) ? (int)$row['HARI KERJA EFEKTIF PERBULAN'] : 0;
-
-                if ($days > 0) {
-                    $manhours = $days * 12;
-                } else {
-                    $rawMh = isset($row['MANHOURS']) ? (float)str_replace(',', '', $row['MANHOURS']) : 0;
-                    $manhours = ($rawMh > 744) ? 0 : $rawMh;
-                }
+                $manhours = $days * 12;
 
                 $joinDate = $this->parseDate($row['MULAI KONTRAK (KHUSUS KONTRAKTOR JANGKA PENDEK) <1 TAHUN'] ?? null);
                 $endDate = $this->parseDate($row['AKHIR KONTRAK (KHUSUS KONTRAKTOR JANGKA PENDEK)  <1 TAHUN'] ?? $row['AKHIR KONTRAK (KHUSUS KONTRAKTOR JANGKA PENDEK) <1 TAHUN'] ?? null);
@@ -307,19 +211,13 @@ class ManpowerCtrl extends Controller
                 ];
             }
         }
-
-        return view('dash.manpower-import', [
-            'month' => $request->input('month'),
-            'previewData' => $previewData,
-            'importType' => $type
-        ]);
+        return view('dash.manpower-import', ['month' => $request->input('month'), 'previewData' => $previewData, 'importType' => $type]);
     }
 
     public function processImport(Request $request)
     {
         $data = json_decode($request->input('confirmed_data'), true);
         $count = 0;
-
         if ($data) {
             foreach ($data as $row) {
                 $type = isset($row['date_out']) ? 'out' : 'in';
@@ -338,13 +236,7 @@ class ManpowerCtrl extends Controller
                     }
                 } else {
                     $days = isset($row['effective_days']) ? (int)$row['effective_days'] : 0;
-                    $manhours = isset($row['manhours']) ? (float)$row['manhours'] : 0;
-
-                    if ($days > 0 && $manhours > 744) {
-                        $manhours = $days * 12;
-                    } elseif ($manhours > 744) {
-                        $manhours = 0;
-                    }
+                    $manhours = $days * 12;
 
                     $payload = [
                         'name' => $row['name'],
@@ -360,47 +252,33 @@ class ManpowerCtrl extends Controller
                         'end_date' => $row['end_date'] ?? null
                     ];
 
-                    if ($nrp) {
-                        Manpower::updateOrCreate(['nrp' => $nrp], $payload);
-                    } else {
-                        Manpower::updateOrCreate(['name' => $payload['name'], 'company' => $payload['company']], $payload);
-                    }
+                    if ($nrp) Manpower::updateOrCreate(['nrp' => $nrp], $payload);
+                    else Manpower::updateOrCreate(['name' => $payload['name'], 'company' => $payload['company']], $payload);
                     $count++;
                 }
             }
         }
-
-        return redirect()->route('manpower.recap', ['month' => $request->input('month')])
-            ->with('success', "Import processed. $count records updated.");
+        return redirect()->route('manpower.recap', ['month' => $request->input('month')])->with('success', "Import processed. $count records updated.");
     }
 
     public function export(Request $request)
     {
         $month = $request->input('month');
-
         $headers = [
-            'Content-type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename=manpower_export_' . ($month ?? 'master') . '.csv',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0'
+            'Content-type' => 'text/csv', 'Content-Disposition' => 'attachment; filename=manpower_export_' . ($month ?? 'master') . '.csv',
+            'Pragma' => 'no-cache', 'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0', 'Expires' => '0'
         ];
-
         $callback = function () use ($month) {
             $file = fopen('php://output', 'w');
-
             if ($month) {
                 fputcsv($file, ['Month: ' . $month]);
                 fputcsv($file, []);
-
                 fputcsv($file, ['SECTION: ACTIVE MANPOWER & ACCUMULATED HOURS']);
                 fputcsv($file, ['Name', 'NRP', 'Company', 'Role', 'Category', 'Site', 'Accumulated Hours (Month)']);
-
                 $start = Carbon::parse($month)->startOfMonth();
                 $end = Carbon::parse($month)->endOfMonth();
                 $logs = ManpowerLog::whereBetween('log_date', [$start, $end])->get();
                 $active = [];
-
                 foreach ($logs as $log) {
                     foreach ($log->content as $entry) {
                         $entry = (object)$entry;
@@ -412,20 +290,16 @@ class ManpowerCtrl extends Controller
                         $active[$id]->total += isset($entry->manhours) ? (float)$entry->manhours : 0;
                     }
                 }
-
                 foreach ($active as $row) {
                     fputcsv($file, [$row->name, $row->nrp, $row->company, $row->role, $row->category, $row->site, $row->total]);
                 }
-
                 fputcsv($file, []);
-
                 fputcsv($file, ['SECTION: INACTIVE / OUT']);
                 fputcsv($file, ['Name', 'NRP', 'Company', 'Date Out', 'Reason']);
                 $outs = Manpower::whereBetween('date_out', [$start, $end])->get();
                 foreach ($outs as $out) {
                     fputcsv($file, [$out->name, $out->nrp, $out->company, $out->date_out, $out->out_reason]);
                 }
-
             } else {
                 $columns = ['ID', 'Site', 'Category', 'Company', 'NRP', 'Name', 'Department', 'Role', 'Join Date', 'End Date', 'Effective Days', 'Manhours', 'Status', 'Date Out', 'Out Reason'];
                 fputcsv($file, $columns);
@@ -441,7 +315,6 @@ class ManpowerCtrl extends Controller
             }
             fclose($file);
         };
-
         return response()->stream($callback, 200, $headers);
     }
 
@@ -450,7 +323,6 @@ class ManpowerCtrl extends Controller
         $today = Carbon::today()->format('Y-m-d');
         $currentRecords = Manpower::whereDate('updated_at', $today)->get();
         if ($currentRecords->isEmpty()) return back()->with('error', 'No modified data found for today (' . $today . ').');
-
         $lastLog = ManpowerLog::where('log_date', '<', $today)->orderBy('log_date', 'desc')->first();
         $previousData = [];
         if ($lastLog && !empty($lastLog->content)) {
@@ -459,15 +331,12 @@ class ManpowerCtrl extends Controller
                 $previousData[$item['id']] = $item['cumulative_mh'] ?? 0;
             }
         }
-
         $logContent = [];
         $totalDailyMh = 0;
-
         foreach ($currentRecords as $record) {
             $prevMh = $previousData[$record->id] ?? 0;
             $currentMh = $record->manhours;
             $dailyMh = $currentMh - $prevMh;
-
             $logContent[] = [
                 'id' => $record->id, 'name' => $record->name, 'nrp' => $record->nrp,
                 'company' => $record->company, 'site' => $record->site, 'role' => $record->role,
@@ -477,12 +346,7 @@ class ManpowerCtrl extends Controller
             ];
             $totalDailyMh += $dailyMh;
         }
-
-        ManpowerLog::updateOrCreate(
-            ['log_date' => $today],
-            ['content' => $logContent, 'total_mp' => count($logContent), 'total_mh' => $totalDailyMh]
-        );
-
+        ManpowerLog::updateOrCreate(['log_date' => $today], ['content' => $logContent, 'total_mp' => count($logContent), 'total_mh' => $totalDailyMh]);
         return back()->with('success', 'Daily recap for ' . $today . ' calculated. Total Daily Hours: ' . number_format($totalDailyMh, 2));
     }
 
@@ -515,16 +379,10 @@ class ManpowerCtrl extends Controller
     {
         $nrp = $request->query('nrp');
         $cleanNrp = $this->normalizeNrp($nrp);
-
         if (!$cleanNrp) return response()->json(['exists' => false]);
-
         $query = Manpower::where('nrp', $cleanNrp);
-
         $ignoreId = $request->query('ignore_id');
-        if (!empty($ignoreId)) {
-            $query->where('id', '!=', $ignoreId);
-        }
-
+        if (!empty($ignoreId)) $query->where('id', '!=', $ignoreId);
         return response()->json(['exists' => $query->exists()]);
     }
 
@@ -581,7 +439,6 @@ class ManpowerCtrl extends Controller
     public function update(Request $r, Manpower $manpower)
     {
         $this->applyAutoStatus($r);
-
         $val = $r->validate([
             'site' => 'required', 'company' => 'required', 'category' => 'required', 'name' => 'required',
             'nrp' => ['nullable', Rule::unique('manpowers', 'nrp')->ignore($manpower->id)],
@@ -590,7 +447,6 @@ class ManpowerCtrl extends Controller
             'effective_days' => 'integer|min:0', 'manhours' => 'numeric|min:0', 'status' => 'required',
             'date_out' => 'nullable|date', 'out_reason' => 'nullable'
         ]);
-
         $manpower->update($val);
         return redirect()->route('manpower.show', $manpower->id)->with('success', 'Manpower details updated.');
     }
